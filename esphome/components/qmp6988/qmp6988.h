@@ -1,9 +1,9 @@
 #pragma once
 
-#include "esphome/core/log.h"
 #include "esphome/core/component.h"
 #include "esphome/core/hal.h"
 #include "esphome/core/helpers.h"
+#include "esphome/core/log.h"
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/i2c/i2c.h"
 
@@ -91,8 +91,8 @@ class QMP6988Component : public PollingComponent, public i2c::I2CDevice {
 
  protected:
   qmp6988_data_t qmp6988_data_;
-  sensor::Sensor *temperature_sensor_;
-  sensor::Sensor *pressure_sensor_;
+  sensor::Sensor *temperature_sensor_{nullptr};
+  sensor::Sensor *pressure_sensor_{nullptr};
 
   QMP6988Oversampling temperature_oversampling_{QMP6988_OVERSAMPLING_16X};
   QMP6988Oversampling pressure_oversampling_{QMP6988_OVERSAMPLING_16X};

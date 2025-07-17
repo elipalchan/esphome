@@ -1,20 +1,19 @@
+from esphome import automation
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome import automation
 from esphome.const import (
     CONF_ACCELERATION,
     CONF_DECELERATION,
     CONF_ID,
     CONF_MAX_SPEED,
     CONF_POSITION,
-    CONF_TARGET,
     CONF_SPEED,
+    CONF_TARGET,
 )
 from esphome.core import CORE, coroutine_with_priority
 
 IS_PLATFORM_COMPONENT = True
 
-# pylint: disable=invalid-name
 stepper_ns = cg.esphome_ns.namespace("stepper")
 Stepper = stepper_ns.class_("Stepper")
 

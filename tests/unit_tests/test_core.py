@@ -1,10 +1,8 @@
-import pytest
-
 from hypothesis import given
-from hypothesis.provisional import ip_addresses
+import pytest
 from strategies import mac_addr_strings
 
-from esphome import core, const
+from esphome import const, core
 
 
 class TestHexInt:
@@ -24,25 +22,6 @@ class TestHexInt:
         actual = str(target)
 
         assert actual == expected
-
-
-class TestIPAddress:
-    @given(value=ip_addresses(v=4).map(str))
-    def test_init__valid(self, value):
-        core.IPAddress(*value.split("."))
-
-    @pytest.mark.parametrize("value", ("127.0.0", "localhost", ""))
-    def test_init__invalid(self, value):
-        with pytest.raises(ValueError, match="IPAddress must consist of 4 items"):
-            core.IPAddress(*value.split("."))
-
-    @given(value=ip_addresses(v=4).map(str))
-    def test_str(self, value):
-        target = core.IPAddress(*value.split("."))
-
-        actual = str(target)
-
-        assert actual == value
 
 
 class TestMACAddress:
@@ -116,14 +95,16 @@ class TestTimePeriod:
 
         assert actual == expected
 
-    def test_init__microseconds_with_fraction(self):
-        with pytest.raises(ValueError, match="Maximum precision is microseconds"):
-            core.TimePeriod(microseconds=1.1)
+    def test_init__nanoseconds_with_fraction(self):
+        with pytest.raises(ValueError, match="Maximum precision is nanoseconds"):
+            core.TimePeriod(nanoseconds=1.1)
 
     @pytest.mark.parametrize(
         "kwargs, expected",
         (
             ({}, "0s"),
+            ({"nanoseconds": 1}, "1ns"),
+            ({"nanoseconds": 1.0001}, "1ns"),
             ({"microseconds": 1}, "1us"),
             ({"microseconds": 1.0001}, "1us"),
             ({"milliseconds": 2}, "2ms"),

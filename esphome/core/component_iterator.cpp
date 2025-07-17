@@ -4,6 +4,8 @@
 
 #ifdef USE_API
 #include "esphome/components/api/api_server.h"
+#endif
+#ifdef USE_API_SERVICES
 #include "esphome/components/api/user_services.h"
 #endif
 
@@ -148,7 +150,7 @@ void ComponentIterator::advance() {
       }
       break;
 #endif
-#ifdef USE_API
+#ifdef USE_API_SERVICES
     case IteratorState ::SERVICE:
       if (this->at_ >= api::global_api_server->get_user_services().size()) {
         advance_platform = true;
@@ -158,16 +160,16 @@ void ComponentIterator::advance() {
       }
       break;
 #endif
-#ifdef USE_ESP32_CAMERA
+#ifdef USE_CAMERA
     case IteratorState::CAMERA:
-      if (esp32_camera::global_esp32_camera == nullptr) {
+      if (camera::Camera::instance() == nullptr) {
         advance_platform = true;
       } else {
-        if (esp32_camera::global_esp32_camera->is_internal() && !this->include_internal_) {
+        if (camera::Camera::instance()->is_internal() && !this->include_internal_) {
           advance_platform = success = true;
           break;
         } else {
-          advance_platform = success = this->on_camera(esp32_camera::global_esp32_camera);
+          advance_platform = success = this->on_camera(camera::Camera::instance());
         }
       }
       break;
@@ -202,6 +204,66 @@ void ComponentIterator::advance() {
       }
       break;
 #endif
+#ifdef USE_DATETIME_DATE
+    case IteratorState::DATETIME_DATE:
+      if (this->at_ >= App.get_dates().size()) {
+        advance_platform = true;
+      } else {
+        auto *date = App.get_dates()[this->at_];
+        if (date->is_internal() && !this->include_internal_) {
+          success = true;
+          break;
+        } else {
+          success = this->on_date(date);
+        }
+      }
+      break;
+#endif
+#ifdef USE_DATETIME_TIME
+    case IteratorState::DATETIME_TIME:
+      if (this->at_ >= App.get_times().size()) {
+        advance_platform = true;
+      } else {
+        auto *time = App.get_times()[this->at_];
+        if (time->is_internal() && !this->include_internal_) {
+          success = true;
+          break;
+        } else {
+          success = this->on_time(time);
+        }
+      }
+      break;
+#endif
+#ifdef USE_DATETIME_DATETIME
+    case IteratorState::DATETIME_DATETIME:
+      if (this->at_ >= App.get_datetimes().size()) {
+        advance_platform = true;
+      } else {
+        auto *datetime = App.get_datetimes()[this->at_];
+        if (datetime->is_internal() && !this->include_internal_) {
+          success = true;
+          break;
+        } else {
+          success = this->on_datetime(datetime);
+        }
+      }
+      break;
+#endif
+#ifdef USE_TEXT
+    case IteratorState::TEXT:
+      if (this->at_ >= App.get_texts().size()) {
+        advance_platform = true;
+      } else {
+        auto *text = App.get_texts()[this->at_];
+        if (text->is_internal() && !this->include_internal_) {
+          success = true;
+          break;
+        } else {
+          success = this->on_text(text);
+        }
+      }
+      break;
+#endif
 #ifdef USE_SELECT
     case IteratorState::SELECT:
       if (this->at_ >= App.get_selects().size()) {
@@ -232,6 +294,81 @@ void ComponentIterator::advance() {
       }
       break;
 #endif
+#ifdef USE_VALVE
+    case IteratorState::VALVE:
+      if (this->at_ >= App.get_valves().size()) {
+        advance_platform = true;
+      } else {
+        auto *valve = App.get_valves()[this->at_];
+        if (valve->is_internal() && !this->include_internal_) {
+          success = true;
+          break;
+        } else {
+          success = this->on_valve(valve);
+        }
+      }
+      break;
+#endif
+#ifdef USE_MEDIA_PLAYER
+    case IteratorState::MEDIA_PLAYER:
+      if (this->at_ >= App.get_media_players().size()) {
+        advance_platform = true;
+      } else {
+        auto *media_player = App.get_media_players()[this->at_];
+        if (media_player->is_internal() && !this->include_internal_) {
+          success = true;
+          break;
+        } else {
+          success = this->on_media_player(media_player);
+        }
+      }
+      break;
+#endif
+#ifdef USE_ALARM_CONTROL_PANEL
+    case IteratorState::ALARM_CONTROL_PANEL:
+      if (this->at_ >= App.get_alarm_control_panels().size()) {
+        advance_platform = true;
+      } else {
+        auto *a_alarm_control_panel = App.get_alarm_control_panels()[this->at_];
+        if (a_alarm_control_panel->is_internal() && !this->include_internal_) {
+          success = true;
+          break;
+        } else {
+          success = this->on_alarm_control_panel(a_alarm_control_panel);
+        }
+      }
+      break;
+#endif
+#ifdef USE_EVENT
+    case IteratorState::EVENT:
+      if (this->at_ >= App.get_events().size()) {
+        advance_platform = true;
+      } else {
+        auto *event = App.get_events()[this->at_];
+        if (event->is_internal() && !this->include_internal_) {
+          success = true;
+          break;
+        } else {
+          success = this->on_event(event);
+        }
+      }
+      break;
+#endif
+#ifdef USE_UPDATE
+    case IteratorState::UPDATE:
+      if (this->at_ >= App.get_updates().size()) {
+        advance_platform = true;
+      } else {
+        auto *update = App.get_updates()[this->at_];
+        if (update->is_internal() && !this->include_internal_) {
+          success = true;
+          break;
+        } else {
+          success = this->on_update(update);
+        }
+      }
+      break;
+#endif
     case IteratorState::MAX:
       if (this->on_end()) {
         this->state_ = IteratorState::NONE;
@@ -240,7 +377,7 @@ void ComponentIterator::advance() {
   }
 
   if (advance_platform) {
-    this->state_ = static_cast<IteratorState>(static_cast<uint32_t>(this->state_) + 1);
+    this->state_ = static_cast<IteratorState>(static_cast<uint8_t>(this->state_) + 1);
     this->at_ = 0;
   } else if (success) {
     this->at_++;
@@ -248,10 +385,13 @@ void ComponentIterator::advance() {
 }
 bool ComponentIterator::on_end() { return true; }
 bool ComponentIterator::on_begin() { return true; }
-#ifdef USE_API
+#ifdef USE_API_SERVICES
 bool ComponentIterator::on_service(api::UserServiceDescriptor *service) { return true; }
 #endif
-#ifdef USE_ESP32_CAMERA
-bool ComponentIterator::on_camera(esp32_camera::ESP32Camera *camera) { return true; }
+#ifdef USE_CAMERA
+bool ComponentIterator::on_camera(camera::Camera *camera) { return true; }
+#endif
+#ifdef USE_MEDIA_PLAYER
+bool ComponentIterator::on_media_player(media_player::MediaPlayer *media_player) { return true; }
 #endif
 }  // namespace esphome

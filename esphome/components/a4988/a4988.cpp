@@ -7,7 +7,7 @@ namespace a4988 {
 static const char *const TAG = "a4988.stepper";
 
 void A4988::setup() {
-  ESP_LOGCONFIG(TAG, "Setting up A4988...");
+  ESP_LOGCONFIG(TAG, "Running setup");
   if (this->sleep_pin_ != nullptr) {
     this->sleep_pin_->setup();
     this->sleep_pin_->digital_write(false);
@@ -46,6 +46,7 @@ void A4988::loop() {
     return;
 
   this->dir_pin_->digital_write(dir == 1);
+  delayMicroseconds(50);
   this->step_pin_->digital_write(true);
   delayMicroseconds(5);
   this->step_pin_->digital_write(false);

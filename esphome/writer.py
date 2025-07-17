@@ -1,27 +1,28 @@
+import importlib
 import logging
 import os
-import re
 from pathlib import Path
-from typing import Dict, List, Union
+import re
 
-from esphome.config import iter_components
+from esphome import loader
+from esphome.config import iter_component_configs, iter_components
 from esphome.const import (
+    ENV_NOGITIGNORE,
     HEADER_FILE_EXTENSIONS,
+    PLATFORM_ESP32,
     SOURCE_FILE_EXTENSIONS,
     __version__,
-    ENV_NOGITIGNORE,
 )
 from esphome.core import CORE, EsphomeError
 from esphome.helpers import (
-    mkdir_p,
-    read_file,
-    write_file_if_changed,
-    walk_files,
     copy_file_if_changed,
     get_bool_env,
+    mkdir_p,
+    read_file,
+    walk_files,
+    write_file_if_changed,
 )
 from esphome.storage_json import StorageJSON, storage_path
-from esphome import loader
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -70,14 +71,14 @@ UPLOAD_SPEED_OVERRIDE = {
 
 def get_flags(key):
     flags = set()
-    for _, component, conf in iter_components(CORE.config):
+    for _, component, conf in iter_component_configs(CORE.config):
         flags |= getattr(component, key)(conf)
     return flags
 
 
 def get_include_text():
     include_text = '#include "esphome.h"\nusing namespace esphome;\n'
-    for _, component, conf in iter_components(CORE.config):
+    for _, component, conf in iter_component_configs(CORE.config):
         if not hasattr(component, "includes"):
             continue
         includes = component.includes
@@ -98,7 +99,7 @@ def replace_file_content(text, pattern, repl):
     return content_new, count
 
 
-def storage_should_clean(old, new):  # type: (StorageJSON, StorageJSON) -> bool
+def storage_should_clean(old: StorageJSON, new: StorageJSON) -> bool:
     if old is None:
         return True
 
@@ -106,6 +107,19 @@ def storage_should_clean(old, new):  # type: (StorageJSON, StorageJSON) -> bool
         return True
     if old.build_path != new.build_path:
         return True
+
+    return False
+
+
+def storage_should_update_cmake_cache(old: StorageJSON, new: StorageJSON) -> bool:
+    if (
+        old.loaded_integrations != new.loaded_integrations
+        or old.loaded_platforms != new.loaded_platforms
+    ):
+        if new.core_platform == PLATFORM_ESP32:
+            from esphome.components.esp32 import FRAMEWORK_ESP_IDF
+
+            return new.framework == FRAMEWORK_ESP_IDF
     return False
 
 
@@ -117,13 +131,16 @@ def update_storage_json():
         return
 
     if storage_should_clean(old, new):
-        _LOGGER.info("Core config or version changed, cleaning build files...")
+        _LOGGER.info("Core config, version changed, cleaning build files...")
         clean_build()
+    elif storage_should_update_cmake_cache(old, new):
+        _LOGGER.info("Integrations changed, cleaning cmake cache...")
+        clean_cmake_cache()
 
     new.save(path)
 
 
-def format_ini(data: Dict[str, Union[str, List[str]]]) -> str:
+def format_ini(data: dict[str, str | list[str]]) -> str:
     content = ""
     for key, value in sorted(data.items()):
         if isinstance(value, list):
@@ -142,7 +159,16 @@ def get_ini_content():
     # Sort to avoid changing build flags order
     CORE.add_platformio_option("build_flags", sorted(CORE.build_flags))
 
-    content = f"[env:{CORE.name}]\n"
+    # Sort to avoid changing build unflags order
+    CORE.add_platformio_option("build_unflags", sorted(CORE.build_unflags))
+
+    # Add extra script for C++ flags
+    CORE.add_platformio_option("extra_scripts", [f"pre:{CXX_FLAGS_FILE_NAME}"])
+
+    content = "[platformio]\n"
+    content += f"description = ESPHome {__version__}\n"
+
+    content += f"[env:{CORE.name}]\n"
     content += format_ini(CORE.platformio_options)
 
     return content
@@ -199,6 +225,9 @@ def write_platformio_project():
         write_gitignore()
     write_platformio_ini(content)
 
+    # Write extra script for C++ specific flags
+    write_cxx_flags_script()
+
 
 DEFINES_H_FORMAT = ESPHOME_H_FORMAT = """\
 #pragma once
@@ -226,8 +255,8 @@ the custom_components folder or the external_components feature.
 
 
 def copy_src_tree():
-    source_files: List[loader.FileResource] = []
-    for _, component, _ in iter_components(CORE.config):
+    source_files: list[loader.FileResource] = []
+    for _, component in iter_components(CORE.config):
         source_files += component.resources
     source_files_map = {
         Path(x.package.replace(".", "/") + "/" + x.resource): x for x in source_files
@@ -286,15 +315,13 @@ def copy_src_tree():
         CORE.relative_src_path("esphome", "core", "version.h"), generate_version_h()
     )
 
-    if CORE.is_esp32:
-        from esphome.components.esp32 import copy_files
-
+    platform = "esphome.components." + CORE.target_platform
+    try:
+        module = importlib.import_module(platform)
+        copy_files = getattr(module, "copy_files")
         copy_files()
-
-    elif CORE.is_esp8266:
-        from esphome.components.esp8266 import copy_files
-
-        copy_files()
+    except AttributeError:
+        pass
 
 
 def generate_defines_h():
@@ -338,6 +365,15 @@ def write_cpp(code_s):
     write_file_if_changed(path, full_file)
 
 
+def clean_cmake_cache():
+    pioenvs = CORE.relative_pioenvs_path()
+    if os.path.isdir(pioenvs):
+        pioenvs_cmake_path = CORE.relative_pioenvs_path(CORE.name, "CMakeCache.txt")
+        if os.path.isfile(pioenvs_cmake_path):
+            _LOGGER.info("Deleting %s", pioenvs_cmake_path)
+            os.remove(pioenvs_cmake_path)
+
+
 def clean_build():
     import shutil
 
@@ -364,3 +400,20 @@ def write_gitignore():
     if not os.path.isfile(path):
         with open(file=path, mode="w", encoding="utf-8") as f:
             f.write(GITIGNORE_CONTENT)
+
+
+CXX_FLAGS_FILE_NAME = "cxx_flags.py"
+CXX_FLAGS_FILE_CONTENTS = """# Auto-generated ESPHome script for C++ specific compiler flags
+Import("env")
+
+# Add C++ specific flags
+"""
+
+
+def write_cxx_flags_script() -> None:
+    path = CORE.relative_build_path(CXX_FLAGS_FILE_NAME)
+    contents = CXX_FLAGS_FILE_CONTENTS
+    if not CORE.is_host:
+        contents += 'env.Append(CXXFLAGS=["-Wno-volatile"])'
+        contents += "\n"
+    write_file_if_changed(path, contents)

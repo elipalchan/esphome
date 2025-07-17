@@ -1,5 +1,7 @@
 #pragma once
 
+#ifdef USE_ESP8266
+
 #include "esphome/core/component.h"
 #include "esphome/core/log.h"
 #include "esphome/components/light/light_output.h"
@@ -18,6 +20,8 @@ class ShellyDimmer : public PollingComponent, public light::LightOutput, public 
  public:
   float get_setup_priority() const override { return setup_priority::LATE; }
 
+  bool is_running_configured_version() const;
+  void handle_firmware();
   void setup() override;
   void update() override;
   void dump_config() override;
@@ -115,3 +119,5 @@ class ShellyDimmer : public PollingComponent, public light::LightOutput, public 
 
 }  // namespace shelly_dimmer
 }  // namespace esphome
+
+#endif  // USE_ESP8266

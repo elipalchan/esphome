@@ -7,12 +7,16 @@ namespace mcp23017 {
 static const char *const TAG = "mcp23017";
 
 void MCP23017::setup() {
-  ESP_LOGCONFIG(TAG, "Setting up MCP23017...");
+  ESP_LOGCONFIG(TAG, "Running setup");
   uint8_t iocon;
   if (!this->read_reg(mcp23x17_base::MCP23X17_IOCONA, &iocon)) {
     this->mark_failed();
     return;
   }
+
+  // Read current output register state
+  this->read_reg(mcp23x17_base::MCP23X17_OLATA, &this->olat_a_);
+  this->read_reg(mcp23x17_base::MCP23X17_OLATB, &this->olat_b_);
 
   if (this->open_drain_ints_) {
     // enable open-drain interrupt pins, 3.3V-safe

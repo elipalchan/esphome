@@ -1,9 +1,11 @@
 #pragma once
 
-#include "esphome/core/helpers.h"
-#include "esphome/core/automation.h"
-#include "api_pb2.h"
 #include "api_server.h"
+#ifdef USE_API
+#include "api_pb2.h"
+#include "esphome/core/automation.h"
+#include "esphome/core/helpers.h"
+#include <vector>
 
 namespace esphome {
 namespace api {
@@ -79,3 +81,4 @@ template<typename... Ts> class HomeAssistantServiceCallAction : public Action<Ts
 
 }  // namespace api
 }  // namespace esphome
+#endif

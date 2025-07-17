@@ -1,6 +1,6 @@
 #include "rotary_encoder.h"
-#include "esphome/core/log.h"
 #include "esphome/core/helpers.h"
+#include "esphome/core/log.h"
 
 namespace esphome {
 namespace rotary_encoder {
@@ -93,17 +93,21 @@ void IRAM_ATTR HOT RotaryEncoderSensorStore::gpio_intr(RotaryEncoderSensorStore 
   int8_t rotation_dir = 0;
   uint16_t new_state = STATE_LOOKUP_TABLE[input_state];
   if ((new_state & arg->resolution & STATE_HAS_INCREMENTED) != 0) {
-    if (arg->counter < arg->max_value)
-      arg->counter++;
+    if (arg->counter < arg->max_value) {
+      auto x = arg->counter + 1;
+      arg->counter = x;
+    }
     rotation_dir = 1;
   }
   if ((new_state & arg->resolution & STATE_HAS_DECREMENTED) != 0) {
-    if (arg->counter > arg->min_value)
-      arg->counter--;
+    if (arg->counter > arg->min_value) {
+      auto x = arg->counter - 1;
+      arg->counter = x;
+    }
     rotation_dir = -1;
   }
 
-  if (rotation_dir != 0) {
+  if (rotation_dir != 0 && !arg->first_read) {
     auto *first_zero = std::find(arg->rotation_events.begin(), arg->rotation_events.end(), 0);  // find first zero
     if (first_zero == arg->rotation_events.begin()  // are we at the start (first event this loop iteration)
         || std::signbit(*std::prev(first_zero)) !=
@@ -119,12 +123,13 @@ void IRAM_ATTR HOT RotaryEncoderSensorStore::gpio_intr(RotaryEncoderSensorStore 
       *std::prev(first_zero) += rotation_dir;  // store the rotation into the previous slot
     }
   }
+  arg->first_read = false;
 
   arg->state = new_state;
 }
 
 void RotaryEncoderSensor::setup() {
-  ESP_LOGCONFIG(TAG, "Setting up Rotary Encoder '%s'...", this->name_.c_str());
+  ESP_LOGCONFIG(TAG, "Running setup for '%s'", this->name_.c_str());
 
   int32_t initial_value = 0;
   switch (this->restore_mode_) {
@@ -161,7 +166,7 @@ void RotaryEncoderSensor::dump_config() {
   LOG_PIN("  Pin B: ", this->pin_b_);
   LOG_PIN("  Pin I: ", this->pin_i_);
 
-  const LogString *restore_mode = LOG_STR("");
+  const LogString *restore_mode;
   switch (this->restore_mode_) {
     case ROTARY_ENCODER_RESTORE_DEFAULT_ZERO:
       restore_mode = LOG_STR("Restore (Defaults to zero)");
@@ -169,6 +174,8 @@ void RotaryEncoderSensor::dump_config() {
     case ROTARY_ENCODER_ALWAYS_ZERO:
       restore_mode = LOG_STR("Always zero");
       break;
+    default:
+      restore_mode = LOG_STR("");
   }
   ESP_LOGCONFIG(TAG, "  Restore Mode: %s", LOG_STR_ARG(restore_mode));
 
@@ -225,6 +232,7 @@ void RotaryEncoderSensor::loop() {
     }
     this->store_.last_read = counter;
     this->publish_state(counter);
+    this->listeners_.call(counter);
     this->publish_initial_value_ = false;
   }
 }

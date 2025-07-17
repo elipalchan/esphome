@@ -10,7 +10,6 @@ namespace senseair {
 
 class SenseAirComponent : public PollingComponent, public uart::UARTDevice {
  public:
-  float get_setup_priority() const override { return setup_priority::DATA; }
   void set_co2_sensor(sensor::Sensor *co2_sensor) { co2_sensor_ = co2_sensor; }
 
   void update() override;
@@ -23,7 +22,6 @@ class SenseAirComponent : public PollingComponent, public uart::UARTDevice {
   void abc_disable();
 
  protected:
-  uint16_t senseair_checksum_(uint8_t *ptr, uint8_t length);
   bool senseair_write_command_(const uint8_t *command, uint8_t *response, uint8_t response_length);
 
   sensor::Sensor *co2_sensor_{nullptr};

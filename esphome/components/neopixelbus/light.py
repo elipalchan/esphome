@@ -1,39 +1,33 @@
-import esphome.codegen as cg
-import esphome.config_validation as cv
 from esphome import pins
+import esphome.codegen as cg
 from esphome.components import light
+from esphome.components.esp32 import get_esp32_variant
+from esphome.components.esp32.const import VARIANT_ESP32C3, VARIANT_ESP32S3
+import esphome.config_validation as cv
 from esphome.const import (
     CONF_CHANNEL,
     CONF_CLOCK_PIN,
     CONF_DATA_PIN,
+    CONF_INVERT,
     CONF_METHOD,
     CONF_NUM_LEDS,
+    CONF_OUTPUT_ID,
     CONF_PIN,
     CONF_TYPE,
     CONF_VARIANT,
-    CONF_OUTPUT_ID,
-    CONF_INVERT,
-)
-from esphome.components.esp32 import get_esp32_variant
-from esphome.components.esp32.const import (
-    VARIANT_ESP32C3,
 )
 from esphome.core import CORE
+
 from ._methods import (
-    METHODS,
-    METHOD_SPI,
-    METHOD_ESP8266_UART,
     METHOD_BIT_BANG,
     METHOD_ESP32_I2S,
     METHOD_ESP32_RMT,
     METHOD_ESP8266_DMA,
+    METHOD_ESP8266_UART,
+    METHOD_SPI,
+    METHODS,
 )
-from .const import (
-    CHIP_TYPES,
-    CONF_ASYNC,
-    CONF_BUS,
-    ONE_WIRE_CHIPS,
-)
+from .const import CHIP_TYPES, CONF_ASYNC, CONF_BUS, ONE_WIRE_CHIPS
 
 neopixelbus_ns = cg.esphome_ns.namespace("neopixelbus")
 NeoPixelBusLightOutputBase = neopixelbus_ns.class_(
@@ -96,7 +90,7 @@ def _choose_default_method(config):
             config[CONF_METHOD] = _validate_method(METHOD_BIT_BANG)
 
     if CORE.is_esp32:
-        if get_esp32_variant() == VARIANT_ESP32C3:
+        if get_esp32_variant() in (VARIANT_ESP32C3, VARIANT_ESP32S3):
             config[CONF_METHOD] = _validate_method(METHOD_ESP32_RMT)
         else:
             config[CONF_METHOD] = _validate_method(METHOD_ESP32_I2S)
@@ -220,4 +214,8 @@ async def to_code(config):
     cg.add(var.set_pixel_order(getattr(ESPNeoPixelOrder, config[CONF_TYPE])))
 
     # https://github.com/Makuna/NeoPixelBus/blob/master/library.json
-    cg.add_library("makuna/NeoPixelBus", "2.6.9")
+    # Version Listed Here: https://registry.platformio.org/libraries/makuna/NeoPixelBus/versions
+    if CORE.is_esp32:
+        cg.add_library("makuna/NeoPixelBus", "2.8.0")
+    else:
+        cg.add_library("makuna/NeoPixelBus", "2.7.3")

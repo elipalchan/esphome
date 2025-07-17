@@ -19,10 +19,12 @@ template<typename... Ts> class MideaActionBase : public Action<Ts...> {
 
 template<typename... Ts> class FollowMeAction : public MideaActionBase<Ts...> {
   TEMPLATABLE_VALUE(float, temperature)
+  TEMPLATABLE_VALUE(bool, use_fahrenheit)
   TEMPLATABLE_VALUE(bool, beeper)
 
   void play(Ts... x) override {
-    this->parent_->do_follow_me(this->temperature_.value(x...), this->beeper_.value(x...));
+    this->parent_->do_follow_me(this->temperature_.value(x...), this->use_fahrenheit_.value(x...),
+                                this->beeper_.value(x...));
   }
 };
 
@@ -54,6 +56,11 @@ template<typename... Ts> class PowerOnAction : public MideaActionBase<Ts...> {
 template<typename... Ts> class PowerOffAction : public MideaActionBase<Ts...> {
  public:
   void play(Ts... x) override { this->parent_->do_power_off(); }
+};
+
+template<typename... Ts> class PowerToggleAction : public MideaActionBase<Ts...> {
+ public:
+  void play(Ts... x) override { this->parent_->do_power_toggle(); }
 };
 
 }  // namespace ac

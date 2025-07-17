@@ -4,32 +4,14 @@
 //  - Arduino - AM2320: https://github.com/EngDial/AM2320/blob/master/src/AM2320.cpp
 
 #include "am2320.h"
-#include "esphome/core/log.h"
 #include "esphome/core/hal.h"
+#include "esphome/core/helpers.h"
+#include "esphome/core/log.h"
 
 namespace esphome {
 namespace am2320 {
 
 static const char *const TAG = "am2320";
-
-// ---=== Calc CRC16 ===---
-uint16_t crc_16(uint8_t *ptr, uint8_t length) {
-  uint16_t crc = 0xFFFF;
-  uint8_t i;
-  //------------------------------
-  while (length--) {
-    crc ^= *ptr++;
-    for (i = 0; i < 8; i++) {
-      if ((crc & 0x01) != 0) {
-        crc >>= 1;
-        crc ^= 0xA001;
-      } else {
-        crc >>= 1;
-      }
-    }
-  }
-  return crc;
-}
 
 void AM2320Component::update() {
   uint8_t data[8];
@@ -52,7 +34,7 @@ void AM2320Component::update() {
   this->status_clear_warning();
 }
 void AM2320Component::setup() {
-  ESP_LOGCONFIG(TAG, "Setting up AM2320...");
+  ESP_LOGCONFIG(TAG, "Running setup");
   uint8_t data[8];
   data[0] = 0;
   data[1] = 4;
@@ -65,7 +47,7 @@ void AM2320Component::dump_config() {
   ESP_LOGD(TAG, "AM2320:");
   LOG_I2C_DEVICE(this);
   if (this->is_failed()) {
-    ESP_LOGE(TAG, "Communication with AM2320 failed!");
+    ESP_LOGE(TAG, ESP_LOG_MSG_COMM_FAIL);
   }
   LOG_SENSOR("  ", "Temperature", this->temperature_sensor_);
   LOG_SENSOR("  ", "Humidity", this->humidity_sensor_);
@@ -98,7 +80,7 @@ bool AM2320Component::read_data_(uint8_t *data) {
   checksum = data[7] << 8;
   checksum += data[6];
 
-  if (crc_16(data, 6) != checksum) {
+  if (crc16(data, 6) != checksum) {
     ESP_LOGW(TAG, "AM2320 Checksum invalid!");
     return false;
   }

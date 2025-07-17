@@ -1,6 +1,6 @@
 import esphome.codegen as cg
-import esphome.config_validation as cv
 from esphome.components import sensor, spi
+import esphome.config_validation as cv
 from esphome.const import (
     CONF_MAINS_FILTER,
     CONF_REFERENCE_RESISTANCE,
@@ -10,6 +10,9 @@ from esphome.const import (
     STATE_CLASS_MEASUREMENT,
     UNIT_CELSIUS,
 )
+
+CODEOWNERS = ["@DAVe3283"]
+DEPENDENCIES = ["spi"]
 
 max31865_ns = cg.esphome_ns.namespace("max31865")
 MAX31865Sensor = max31865_ns.class_(

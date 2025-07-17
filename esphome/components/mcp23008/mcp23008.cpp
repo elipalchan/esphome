@@ -7,12 +7,15 @@ namespace mcp23008 {
 static const char *const TAG = "mcp23008";
 
 void MCP23008::setup() {
-  ESP_LOGCONFIG(TAG, "Setting up MCP23008...");
+  ESP_LOGCONFIG(TAG, "Running setup");
   uint8_t iocon;
   if (!this->read_reg(mcp23x08_base::MCP23X08_IOCON, &iocon)) {
     this->mark_failed();
     return;
   }
+
+  // Read current output register state
+  this->read_reg(mcp23x08_base::MCP23X08_OLAT, &this->olat_);
 
   if (this->open_drain_ints_) {
     // enable open-drain interrupt pins, 3.3V-safe

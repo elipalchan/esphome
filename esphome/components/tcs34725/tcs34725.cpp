@@ -1,6 +1,8 @@
 #include "tcs34725.h"
-#include "esphome/core/log.h"
 #include "esphome/core/hal.h"
+#include "esphome/core/helpers.h"
+#include "esphome/core/log.h"
+#include <algorithm>
 
 namespace esphome {
 namespace tcs34725 {
@@ -13,13 +15,10 @@ static const uint8_t TCS34725_REGISTER_ID = TCS34725_COMMAND_BIT | 0x12;
 static const uint8_t TCS34725_REGISTER_ATIME = TCS34725_COMMAND_BIT | 0x01;
 static const uint8_t TCS34725_REGISTER_CONTROL = TCS34725_COMMAND_BIT | 0x0F;
 static const uint8_t TCS34725_REGISTER_ENABLE = TCS34725_COMMAND_BIT | 0x00;
-static const uint8_t TCS34725_REGISTER_CDATAL = TCS34725_COMMAND_BIT | 0x14;
-static const uint8_t TCS34725_REGISTER_RDATAL = TCS34725_COMMAND_BIT | 0x16;
-static const uint8_t TCS34725_REGISTER_GDATAL = TCS34725_COMMAND_BIT | 0x18;
-static const uint8_t TCS34725_REGISTER_BDATAL = TCS34725_COMMAND_BIT | 0x1A;
+static const uint8_t TCS34725_REGISTER_CRGBDATAL = TCS34725_COMMAND_BIT | 0x14;
 
 void TCS34725Component::setup() {
-  ESP_LOGCONFIG(TAG, "Setting up TCS34725...");
+  ESP_LOGCONFIG(TAG, "Running setup");
   uint8_t id;
   if (this->read_register(TCS34725_REGISTER_ID, &id, 1) != i2c::ERROR_OK) {
     this->mark_failed();
@@ -47,7 +46,7 @@ void TCS34725Component::dump_config() {
   ESP_LOGCONFIG(TAG, "TCS34725:");
   LOG_I2C_DEVICE(this);
   if (this->is_failed()) {
-    ESP_LOGE(TAG, "Communication with TCS34725 failed!");
+    ESP_LOGE(TAG, ESP_LOG_MSG_COMM_FAIL);
   }
   LOG_UPDATE_INTERVAL(this);
 
@@ -74,20 +73,21 @@ float TCS34725Component::get_setup_priority() const { return setup_priority::DAT
  *  @return Color temperature in degrees Kelvin
  */
 void TCS34725Component::calculate_temperature_and_lux_(uint16_t r, uint16_t g, uint16_t b, uint16_t c) {
-  float r2, g2, b2; /* RGB values minus IR component */
-  float sat;        /* Digital saturation level */
-  float ir;         /* Inferred IR content */
+  float sat; /* Digital saturation level */
 
-  this->illuminance_ = 0;  // Assign 0 value before calculation
-  this->color_temperature_ = 0;
+  this->illuminance_ = NAN;
+  this->color_temperature_ = NAN;
 
-  const float ga = this->glass_attenuation_;  // Glass Attenuation Factor
-  static const float DF = 310.f;              // Device Factor
-  static const float R_COEF = 0.136f;         //
-  static const float G_COEF = 1.f;            // used in lux computation
-  static const float B_COEF = -0.444f;        //
-  static const float CT_COEF = 3810.f;        // Color Temperature Coefficient
-  static const float CT_OFFSET = 1391.f;      // Color Temperatuer Offset
+  const float ga = this->glass_attenuation_;            // Glass Attenuation Factor
+  static const float DF = 310.f;                        // Device Factor
+  static const float R_COEF = 0.136f;                   //
+  static const float G_COEF = 1.f;                      // used in lux computation
+  static const float B_COEF = -0.444f;                  //
+  static const float CT_COEF = 3810.f;                  // Color Temperature Coefficient
+  static const float CT_OFFSET = 1391.f;                // Color Temperatuer Offset
+  static const float MAX_ILLUMINANCE = 100000.0f;       // Cap illuminance at 100,000 lux
+  static const float MAX_COLOR_TEMPERATURE = 15000.0f;  // Maximum expected color temperature in Kelvin
+  static const float MIN_COLOR_TEMPERATURE = 1000.0f;   // Maximum reasonable color temperature in Kelvin
 
   if (c == 0) {
     return;
@@ -136,60 +136,69 @@ void TCS34725Component::calculate_temperature_and_lux_(uint16_t r, uint16_t g, u
   }
   /* Check for saturation and mark the sample as invalid if true */
   if (c >= sat) {
-    ESP_LOGW(TAG, "Saturation too high, discarding sample with saturation %.1f and clear %d", sat, c);
-    return;
-  }
-
-  /* AMS RGB sensors have no IR channel, so the IR content must be */
-  /* calculated indirectly. */
-  ir = ((r + g + b) > c) ? (r + g + b - c) / 2 : 0;
-
-  /* Remove the IR component from the raw RGB values */
-  r2 = r - ir;
-  g2 = g - ir;
-  b2 = b - ir;
-
-  if (r2 == 0) {
-    return;
+    if (this->integration_time_auto_) {
+      ESP_LOGI(TAG, "Saturation too high, sample discarded, autogain ongoing");
+      return;
+    } else {
+      ESP_LOGW(TAG,
+               "Saturation too high, sample with saturation %.1f and clear %d lux/color temperature cannot reliably "
+               "calculated, reduce integration/gain or use a grey filter.",
+               sat, c);
+      return;
+    }
   }
 
   // Lux Calculation (DN40 3.2)
 
-  float g1 = R_COEF * r2 + G_COEF * g2 + B_COEF * b2;
+  float g1 = R_COEF * (float) r + G_COEF * (float) g + B_COEF * (float) b;
   float cpl = (this->integration_time_ * this->gain_) / (ga * DF);
-  this->illuminance_ = g1 / cpl;
+
+  this->illuminance_ = std::max(g1 / cpl, 0.0f);
+
+  if (this->illuminance_ > MAX_ILLUMINANCE) {
+    ESP_LOGW(TAG, "Calculated illuminance greater than limit (%f), setting to NAN", this->illuminance_);
+    this->illuminance_ = NAN;
+    return;
+  }
+
+  if (r == 0) {
+    ESP_LOGW(TAG, "Red channel is zero, cannot compute color temperature");
+    return;
+  }
 
   // Color Temperature Calculation (DN40)
   /* A simple method of measuring color temp is to use the ratio of blue */
-  /* to red light, taking IR cancellation into account. */
-  this->color_temperature_ = (CT_COEF * b2) / /** Color temp coefficient. */
-                                 r2 +
-                             CT_OFFSET; /** Color temp offset. */
+  /* to red light. */
+
+  this->color_temperature_ = (CT_COEF * (float) b) / (float) r + CT_OFFSET;
+
+  // Ensure the color temperature stays within reasonable bounds
+  if (this->color_temperature_ < MIN_COLOR_TEMPERATURE) {
+    ESP_LOGW(TAG, "Calculated color temperature value too low (%f), setting to NAN", this->color_temperature_);
+    this->color_temperature_ = NAN;
+  } else if (this->color_temperature_ > MAX_COLOR_TEMPERATURE) {
+    ESP_LOGW(TAG, "Calculated color temperature value too high (%f), setting to NAN", this->color_temperature_);
+    this->color_temperature_ = NAN;
+  }
 }
 
 void TCS34725Component::update() {
-  uint16_t raw_c;
-  uint16_t raw_r;
-  uint16_t raw_g;
-  uint16_t raw_b;
+  uint8_t data[8];  // Buffer to hold the 8 bytes (2 bytes for each of the 4 channels)
 
-  if (this->read_data_register_(TCS34725_REGISTER_CDATAL, raw_c) != i2c::ERROR_OK) {
+  // Perform burst
+  if (this->read_register(TCS34725_REGISTER_CRGBDATAL, data, 8) != i2c::ERROR_OK) {
     this->status_set_warning();
+    ESP_LOGW(TAG, "Error reading TCS34725 sensor data");
     return;
   }
-  if (this->read_data_register_(TCS34725_REGISTER_RDATAL, raw_r) != i2c::ERROR_OK) {
-    this->status_set_warning();
-    return;
-  }
-  if (this->read_data_register_(TCS34725_REGISTER_GDATAL, raw_g) != i2c::ERROR_OK) {
-    this->status_set_warning();
-    return;
-  }
-  if (this->read_data_register_(TCS34725_REGISTER_BDATAL, raw_b) != i2c::ERROR_OK) {
-    this->status_set_warning();
-    return;
-  }
-  ESP_LOGV(TAG, "Raw values clear=%x red=%x green=%x blue=%x", raw_c, raw_r, raw_g, raw_b);
+
+  // Extract the data
+  uint16_t raw_c = encode_uint16(data[1], data[0]);  // Clear channel
+  uint16_t raw_r = encode_uint16(data[3], data[2]);  // Red channel
+  uint16_t raw_g = encode_uint16(data[5], data[4]);  // Green channel
+  uint16_t raw_b = encode_uint16(data[7], data[6]);  // Blue channel
+
+  ESP_LOGV(TAG, "Raw values clear=%d red=%d green=%d blue=%d", raw_c, raw_r, raw_g, raw_b);
 
   float channel_c;
   float channel_r;
@@ -199,7 +208,7 @@ void TCS34725Component::update() {
   if (raw_c == 0) {
     channel_c = channel_r = channel_g = channel_b = 0.0f;
   } else {
-    float max_count = this->integration_time_ * 1024.0f / 2.4;
+    float max_count = this->integration_time_ <= 153.6f ? this->integration_time_ * 1024.0f / 2.4f : 65535.0f;
     float sum = raw_c;
     channel_r = raw_r / sum * 100.0f;
     channel_g = raw_g / sum * 100.0f;
@@ -220,20 +229,96 @@ void TCS34725Component::update() {
     calculate_temperature_and_lux_(raw_r, raw_g, raw_b, raw_c);
   }
 
-  if (this->illuminance_sensor_ != nullptr)
-    this->illuminance_sensor_->publish_state(this->illuminance_);
+  // do not publish values if auto gain finding ongoing, and oversaturated
+  // so: publish when:
+  // - not auto mode
+  // - clear not oversaturated
+  // - clear oversaturated but gain and timing cannot go lower
+  if (!this->integration_time_auto_ || raw_c < 65530 || (this->gain_reg_ == 0 && this->integration_time_ < 200)) {
+    if (this->illuminance_sensor_ != nullptr)
+      this->illuminance_sensor_->publish_state(this->illuminance_);
 
-  if (this->color_temperature_sensor_ != nullptr)
-    this->color_temperature_sensor_->publish_state(this->color_temperature_);
+    if (this->color_temperature_sensor_ != nullptr)
+      this->color_temperature_sensor_->publish_state(this->color_temperature_);
+  }
 
-  ESP_LOGD(TAG, "Got Red=%.1f%%,Green=%.1f%%,Blue=%.1f%%,Clear=%.1f%% Illuminance=%.1flx Color Temperature=%.1fK",
+  ESP_LOGD(TAG,
+           "Got Red=%.1f%%,Green=%.1f%%,Blue=%.1f%%,Clear=%.1f%% Illuminance=%.1flx Color "
+           "Temperature=%.1fK",
            channel_r, channel_g, channel_b, channel_c, this->illuminance_, this->color_temperature_);
 
+  if (this->integration_time_auto_) {
+    // change integration time an gain to achieve maximum resolution an dynamic range
+    // calculate optimal integration time to achieve 70% satuaration
+    float integration_time_ideal;
+
+    integration_time_ideal = 60 / ((float) std::max((uint16_t) 1, raw_c) / 655.35f) * this->integration_time_;
+
+    uint8_t gain_reg_val_new = this->gain_reg_;
+    // increase gain if less than 20% of white channel used and high integration time
+    // increase only if not already maximum
+    // do not use max gain, as ist will not get better
+    if (this->gain_reg_ < 3) {
+      if (((float) raw_c / 655.35 < 20.f) && (this->integration_time_ > 600.f)) {
+        gain_reg_val_new = this->gain_reg_ + 1;
+        // update integration time to new situation
+        integration_time_ideal = integration_time_ideal / 4;
+      }
+    }
+
+    // decrease gain, if very high clear values and integration times alreadey low
+    if (this->gain_reg_ > 0) {
+      if (70 < ((float) raw_c / 655.35) && (this->integration_time_ < 200)) {
+        gain_reg_val_new = this->gain_reg_ - 1;
+        // update integration time to new situation
+        integration_time_ideal = integration_time_ideal * 4;
+      }
+    }
+
+    // saturate integration times
+    float integration_time_next = integration_time_ideal;
+    if (integration_time_ideal > 2.4f * 256) {
+      integration_time_next = 2.4f * 256;
+    }
+    if (integration_time_ideal < 154) {
+      integration_time_next = 154;
+    }
+
+    // calculate register value from timing
+    uint8_t regval_atime = (uint8_t) (256.f - integration_time_next / 2.4f);
+    ESP_LOGD(TAG, "Integration time: %.1fms, ideal: %.1fms regval_new %d Gain: %.f Clear channel raw: %d  gain reg: %d",
+             this->integration_time_, integration_time_next, regval_atime, this->gain_, raw_c, this->gain_reg_);
+
+    if (this->integration_reg_ != regval_atime || gain_reg_val_new != this->gain_reg_) {
+      this->integration_reg_ = regval_atime;
+      this->gain_reg_ = gain_reg_val_new;
+      set_gain((TCS34725Gain) gain_reg_val_new);
+      if (this->write_config_register_(TCS34725_REGISTER_ATIME, this->integration_reg_) != i2c::ERROR_OK ||
+          this->write_config_register_(TCS34725_REGISTER_CONTROL, this->gain_reg_) != i2c::ERROR_OK) {
+        this->mark_failed();
+        ESP_LOGW(TAG, "TCS34725I update timing failed!");
+      } else {
+        this->integration_time_ = integration_time_next;
+      }
+    }
+  }
   this->status_clear_warning();
 }
 void TCS34725Component::set_integration_time(TCS34725IntegrationTime integration_time) {
-  this->integration_reg_ = integration_time;
-  this->integration_time_ = (256.f - integration_time) * 2.4f;
+  // if an integration time is 0x100, this is auto start with 154ms as this gives best starting point
+  TCS34725IntegrationTime my_integration_time_regval;
+
+  if (integration_time == TCS34725_INTEGRATION_TIME_AUTO) {
+    this->integration_time_auto_ = true;
+    this->integration_reg_ = TCS34725_INTEGRATION_TIME_154MS;
+    my_integration_time_regval = TCS34725_INTEGRATION_TIME_154MS;
+  } else {
+    this->integration_reg_ = integration_time;
+    my_integration_time_regval = integration_time;
+    this->integration_time_auto_ = false;
+  }
+  this->integration_time_ = (256.f - my_integration_time_regval) * 2.4f;
+  ESP_LOGI(TAG, "TCS34725I Integration time set to: %.1fms", this->integration_time_);
 }
 void TCS34725Component::set_gain(TCS34725Gain gain) {
   this->gain_reg_ = gain;

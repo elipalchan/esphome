@@ -13,7 +13,7 @@ void MCP23S08::set_device_address(uint8_t device_addr) {
 }
 
 void MCP23S08::setup() {
-  ESP_LOGCONFIG(TAG, "Setting up MCP23S08...");
+  ESP_LOGCONFIG(TAG, "Running setup");
   this->spi_setup();
 
   this->enable();
@@ -22,6 +22,9 @@ void MCP23S08::setup() {
   this->transfer_byte(mcp23x08_base::MCP23X08_IOCON);
   this->transfer_byte(0b00011000);  // Enable HAEN pins for addressing
   this->disable();
+
+  // Read current output register state
+  this->read_reg(mcp23x08_base::MCP23X08_OLAT, &this->olat_);
 
   if (this->open_drain_ints_) {
     // enable open-drain interrupt pins, 3.3V-safe

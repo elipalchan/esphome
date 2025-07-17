@@ -12,7 +12,7 @@ NdefRecord::NdefRecord(std::vector<uint8_t> payload_data) {
 std::vector<uint8_t> NdefRecord::encode(bool first, bool last) {
   std::vector<uint8_t> data;
 
-  // Get encoded payload, this is overriden by more specific record classes
+  // Get encoded payload, this is overridden by more specific record classes
   std::vector<uint8_t> payload_data = get_encoded_payload();
 
   size_t payload_length = payload_data.size();
@@ -30,13 +30,13 @@ std::vector<uint8_t> NdefRecord::encode(bool first, bool last) {
     data.push_back(payload_length & 0xFF);
   }
 
-  if (this->id_.length()) {
+  if (!this->id_.empty()) {
     data.push_back(this->id_.length());
   }
 
   data.insert(data.end(), this->type_.begin(), this->type_.end());
 
-  if (this->id_.length()) {
+  if (!this->id_.empty()) {
     data.insert(data.end(), this->id_.begin(), this->id_.end());
   }
 
@@ -55,7 +55,7 @@ uint8_t NdefRecord::create_flag_byte(bool first, bool last, size_t payload_size)
   if (payload_size <= 255) {
     value = value | 0x10;  // Set SR bit
   }
-  if (this->id_.length()) {
+  if (!this->id_.empty()) {
     value = value | 0x08;  // Set IL bit
   }
   return value;

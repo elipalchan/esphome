@@ -46,7 +46,7 @@ void RC522::setup() {
     reset_pin_->pin_mode(gpio::FLAG_INPUT);
 
     if (!reset_pin_->digital_read()) {  // The MFRC522 chip is in power down mode.
-      ESP_LOGV(TAG, "Power down mode detected. Hard resetting...");
+      ESP_LOGV(TAG, "Power down mode detected. Hard resetting");
       reset_pin_->pin_mode(gpio::FLAG_OUTPUT);  // Now set the resetPowerDownPin as digital output.
       reset_pin_->digital_write(false);         // Make sure we have a clean LOW state.
       delayMicroseconds(2);             // 8.8.1 Reset timing requirements says about 100ns. Let us be generous: 2μsl
@@ -101,7 +101,7 @@ void RC522::dump_config() {
     case NONE:
       break;
     case RESET_FAILED:
-      ESP_LOGE(TAG, "Reset command failed!");
+      ESP_LOGE(TAG, "Reset command failed");
       break;
   }
 
@@ -256,7 +256,7 @@ void RC522::loop() {
 
       this->current_uid_ = rfid_uid;
 
-      for (auto *trigger : this->triggers_)
+      for (auto *trigger : this->triggers_ontag_)
         trigger->process(rfid_uid);
 
       if (report) {
@@ -265,6 +265,11 @@ void RC522::loop() {
       break;
     }
     case STATE_DONE: {
+      if (!this->current_uid_.empty()) {
+        ESP_LOGV(TAG, "Tag '%s' removed", format_uid(this->current_uid_).c_str());
+        for (auto *trigger : this->triggers_ontagremoved_)
+          trigger->process(this->current_uid_);
+      }
       this->current_uid_ = {};
       state_ = STATE_INIT;
       break;
@@ -287,7 +292,7 @@ void RC522::pcd_reset_() {
     return;
 
   if (reset_count_ == RESET_COUNT) {
-    ESP_LOGI(TAG, "Soft reset...");
+    ESP_LOGI(TAG, "Soft reset");
     // Issue the SoftReset command.
     pcd_write_register(COMMAND_REG, PCD_SOFT_RESET);
   }
@@ -295,14 +300,14 @@ void RC522::pcd_reset_() {
   // Expect the PowerDown bit in CommandReg to be cleared (max 3x50ms)
   if ((pcd_read_register(COMMAND_REG) & (1 << 4)) == 0) {
     reset_count_ = 0;
-    ESP_LOGI(TAG, "Device online.");
+    ESP_LOGI(TAG, "Device online");
     // Wait for initialize
     reset_timeout_ = millis();
     return;
   }
 
   if (--reset_count_ == 0) {
-    ESP_LOGE(TAG, "Unable to reset RC522.");
+    ESP_LOGE(TAG, "Unable to reset");
     this->error_code_ = RESET_FAILED;
     mark_failed();
   }
@@ -392,8 +397,10 @@ RC522::StatusCode RC522::await_transceive_() {
     back_length_ = 0;
     ESP_LOGW(TAG, "Communication with the MFRC522 might be down, reset in %d",
              10 - error_counter_);  // todo: trigger reset?
-    if (error_counter_++ > 10)
+    if (error_counter_++ >= 10) {
       setup();
+      error_counter_ = 0;  // reset the error counter
+    }
 
     return STATUS_TIMEOUT;
   }

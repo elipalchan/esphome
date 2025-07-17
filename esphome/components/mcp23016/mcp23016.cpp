@@ -8,12 +8,16 @@ namespace mcp23016 {
 static const char *const TAG = "mcp23016";
 
 void MCP23016::setup() {
-  ESP_LOGCONFIG(TAG, "Setting up MCP23016...");
+  ESP_LOGCONFIG(TAG, "Running setup");
   uint8_t iocon;
   if (!this->read_reg_(MCP23016_IOCON0, &iocon)) {
     this->mark_failed();
     return;
   }
+
+  // Read current output register state
+  this->read_reg_(MCP23016_OLAT0, &this->olat_0_);
+  this->read_reg_(MCP23016_OLAT1, &this->olat_1_);
 
   // all pins input
   this->write_reg_(MCP23016_IODIR0, 0xFF);

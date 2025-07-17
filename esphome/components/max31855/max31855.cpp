@@ -1,5 +1,6 @@
 #include "max31855.h"
 
+#include "esphome/core/helpers.h"
 #include "esphome/core/log.h"
 
 namespace esphome {
@@ -19,7 +20,7 @@ void MAX31855Sensor::update() {
 }
 
 void MAX31855Sensor::setup() {
-  ESP_LOGCONFIG(TAG, "Setting up MAX31855Sensor '%s'...", this->name_.c_str());
+  ESP_LOGCONFIG(TAG, "Running setup for '%s'", this->name_.c_str());
   this->spi_setup();
 }
 void MAX31855Sensor::dump_config() {
@@ -47,7 +48,7 @@ void MAX31855Sensor::read_data_() {
   if (mem != 0xFFFFFFFF) {
     this->status_clear_error();
   } else {
-    ESP_LOGE(TAG, "No data received from MAX31855 (0x%08X). Check wiring!", mem);
+    ESP_LOGE(TAG, "No data received from MAX31855 (0x%08" PRIX32 "). Check wiring!", mem);
     this->publish_state(NAN);
     if (this->temperature_reference_) {
       this->temperature_reference_->publish_state(NAN);
@@ -69,25 +70,25 @@ void MAX31855Sensor::read_data_() {
 
   // Check thermocouple faults
   if (mem & 0x00000001) {
-    ESP_LOGW(TAG, "Thermocouple open circuit (not connected) fault from MAX31855 (0x%08X)", mem);
+    ESP_LOGW(TAG, "Thermocouple open circuit (not connected) fault from MAX31855 (0x%08" PRIX32 ")", mem);
     this->publish_state(NAN);
     this->status_set_warning();
     return;
   }
   if (mem & 0x00000002) {
-    ESP_LOGW(TAG, "Thermocouple short circuit to ground fault from MAX31855 (0x%08X)", mem);
+    ESP_LOGW(TAG, "Thermocouple short circuit to ground fault from MAX31855 (0x%08" PRIX32 ")", mem);
     this->publish_state(NAN);
     this->status_set_warning();
     return;
   }
   if (mem & 0x00000004) {
-    ESP_LOGW(TAG, "Thermocouple short circuit to VCC fault from MAX31855 (0x%08X)", mem);
+    ESP_LOGW(TAG, "Thermocouple short circuit to VCC fault from MAX31855 (0x%08" PRIX32 ")", mem);
     this->publish_state(NAN);
     this->status_set_warning();
     return;
   }
   if (mem & 0x00010000) {
-    ESP_LOGW(TAG, "Got faulty reading from MAX31855 (0x%08X)", mem);
+    ESP_LOGW(TAG, "Got faulty reading from MAX31855 (0x%08" PRIX32 ")", mem);
     this->publish_state(NAN);
     this->status_set_warning();
     return;

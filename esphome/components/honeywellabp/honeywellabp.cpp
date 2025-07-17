@@ -35,9 +35,9 @@ uint8_t HONEYWELLABPSensor::readsensor_() {
   // if device is normal and there is new data, bitmask and save the raw data
   if (status_ == 0) {
     // 14 - bit pressure is the last 6 bits of byte 0 (high bits) & all of byte 1 (lowest 8 bits)
-    pressure_count_ = ((uint16_t)(buf_[0]) << 8 & 0x3F00) | ((uint16_t)(buf_[1]) & 0xFF);
+    pressure_count_ = ((uint16_t) (buf_[0]) << 8 & 0x3F00) | ((uint16_t) (buf_[1]) & 0xFF);
     // 11 - bit temperature is all of byte 2 (lowest 8 bits) and the first three bits of byte 3
-    temperature_count_ = (((uint16_t)(buf_[2]) << 3) & 0x7F8) | (((uint16_t)(buf_[3]) >> 5) & 0x7);
+    temperature_count_ = (((uint16_t) (buf_[2]) << 3) & 0x7F8) | (((uint16_t) (buf_[3]) >> 5) & 0x7);
     ESP_LOGV(TAG, "Sensor pressure_count_ %d", pressure_count_);
     ESP_LOGV(TAG, "Sensor temperature_count_ %d", temperature_count_);
   }
@@ -85,8 +85,10 @@ float HONEYWELLABPSensor::get_setup_priority() const { return setup_priority::LA
 void HONEYWELLABPSensor::dump_config() {
   //  LOG_SENSOR("", "HONEYWELLABP", this);
   LOG_PIN("  CS Pin: ", this->cs_);
-  ESP_LOGCONFIG(TAG, "  Min Pressure Range: %0.1f", honeywellabp_min_pressure_);
-  ESP_LOGCONFIG(TAG, "  Max Pressure Range: %0.1f", honeywellabp_max_pressure_);
+  ESP_LOGCONFIG(TAG,
+                "  Min Pressure Range: %0.1f\n"
+                "  Max Pressure Range: %0.1f",
+                honeywellabp_min_pressure_, honeywellabp_max_pressure_);
   LOG_UPDATE_INTERVAL(this);
 }
 

@@ -1,32 +1,31 @@
-import logging
 from importlib import resources
-from typing import Optional
+import logging
 
 import tzlocal
 
+from esphome import automation
+from esphome.automation import Condition
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome import automation
 from esphome.const import (
-    CONF_ID,
+    CONF_AT,
     CONF_CRON,
     CONF_DAYS_OF_MONTH,
     CONF_DAYS_OF_WEEK,
+    CONF_HOUR,
     CONF_HOURS,
+    CONF_ID,
+    CONF_MINUTE,
     CONF_MINUTES,
     CONF_MONTHS,
     CONF_ON_TIME,
     CONF_ON_TIME_SYNC,
+    CONF_SECOND,
     CONF_SECONDS,
     CONF_TIMEZONE,
     CONF_TRIGGER_ID,
-    CONF_AT,
-    CONF_SECOND,
-    CONF_HOUR,
-    CONF_MINUTE,
 )
 from esphome.core import coroutine_with_priority
-from esphome.automation import Condition
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -37,11 +36,10 @@ time_ns = cg.esphome_ns.namespace("time")
 RealTimeClock = time_ns.class_("RealTimeClock", cg.PollingComponent)
 CronTrigger = time_ns.class_("CronTrigger", automation.Trigger.template(), cg.Component)
 SyncTrigger = time_ns.class_("SyncTrigger", automation.Trigger.template(), cg.Component)
-ESPTime = time_ns.struct("ESPTime")
 TimeHasTimeCondition = time_ns.class_("TimeHasTimeCondition", Condition)
 
 
-def _load_tzdata(iana_key: str) -> Optional[bytes]:
+def _load_tzdata(iana_key: str) -> bytes | None:
     # From https://tzdata.readthedocs.io/en/latest/#examples
     try:
         package_loc, resource = iana_key.rsplit("/", 1)
@@ -50,7 +48,7 @@ def _load_tzdata(iana_key: str) -> Optional[bytes]:
     package = "tzdata.zoneinfo." + package_loc.replace("/", ".")
 
     try:
-        return resources.read_binary(package, resource)
+        return (resources.files(package) / resource).read_bytes()
     except (FileNotFoundError, ModuleNotFoundError):
         return None
 
@@ -126,10 +124,10 @@ def _parse_cron_part(part, min_value, max_value, special_mapping):
             )
         begin, end = data
         begin_n = _parse_cron_int(
-            begin, special_mapping, "Number for time range must be integer, " "got {}"
+            begin, special_mapping, "Number for time range must be integer, got {}"
         )
         end_n = _parse_cron_int(
-            end, special_mapping, "Number for time range must be integer, " "got {}"
+            end, special_mapping, "Number for time range must be integer, got {}"
         )
         if end_n < begin_n:
             return set(range(end_n, max_value + 1)) | set(range(min_value, begin_n + 1))
@@ -139,7 +137,7 @@ def _parse_cron_part(part, min_value, max_value, special_mapping):
         _parse_cron_int(
             part,
             special_mapping,
-            "Number for time expression must be an " "integer, got {}",
+            "Number for time expression must be an integer, got {}",
         )
     }
 
@@ -270,7 +268,19 @@ def validate_tz(value: str) -> str:
 
 TIME_SCHEMA = cv.Schema(
     {
-        cv.Optional(CONF_TIMEZONE, default=detect_tz): validate_tz,
+        cv.SplitDefault(
+            CONF_TIMEZONE,
+            esp8266=detect_tz,
+            esp32=detect_tz,
+            rp2040=detect_tz,
+            bk72xx=detect_tz,
+            rtl87xx=detect_tz,
+            ln882x=detect_tz,
+            host=detect_tz,
+        ): cv.All(
+            cv.only_with_framework(["arduino", "esp-idf", "host"]),
+            validate_tz,
+        ),
         cv.Optional(CONF_ON_TIME): automation.validate_automation(
             {
                 cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(CronTrigger),
@@ -295,7 +305,9 @@ TIME_SCHEMA = cv.Schema(
 
 
 async def setup_time_core_(time_var, config):
-    cg.add(time_var.set_timezone(config[CONF_TIMEZONE]))
+    if timezone := config.get(CONF_TIMEZONE):
+        cg.add(time_var.set_timezone(timezone))
+        cg.add_define("USE_TIME_TIMEZONE")
 
     for conf in config.get(CONF_ON_TIME, []):
         trigger = cg.new_Pvariable(conf[CONF_TRIGGER_ID], time_var)

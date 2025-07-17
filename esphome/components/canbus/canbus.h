@@ -4,6 +4,9 @@
 #include "esphome/core/component.h"
 #include "esphome/core/optional.h"
 
+#include <cinttypes>
+#include <vector>
+
 namespace esphome {
 namespace canbus {
 
@@ -17,9 +20,13 @@ enum Error : uint8_t {
 };
 
 enum CanSpeed : uint8_t {
+  CAN_1KBPS,
   CAN_5KBPS,
   CAN_10KBPS,
+  CAN_12K5BPS,
+  CAN_16KBPS,
   CAN_20KBPS,
+  CAN_25KBPS,
   CAN_31K25BPS,
   CAN_33KBPS,
   CAN_40KBPS,
@@ -32,6 +39,7 @@ enum CanSpeed : uint8_t {
   CAN_200KBPS,
   CAN_250KBPS,
   CAN_500KBPS,
+  CAN_800KBPS,
   CAN_1000KBPS
 };
 
@@ -73,6 +81,20 @@ class Canbus : public Component {
   void set_bitrate(CanSpeed bit_rate) { this->bit_rate_ = bit_rate; }
 
   void add_trigger(CanbusTrigger *trigger);
+  /**
+   * Add a callback to be called when a CAN message is received. All received messages
+   * are passed to the callback without filtering.
+   *
+   * The callback function receives:
+   * - can_id of the received data
+   * - extended_id True if the can_id is an extended id
+   * - rtr If this is a remote transmission request
+   * - data The message data
+   */
+  void add_callback(
+      std::function<void(uint32_t can_id, bool extended_id, bool rtr, const std::vector<uint8_t> &data)> callback) {
+    this->callback_manager_.add(std::move(callback));
+  }
 
  protected:
   template<typename... Ts> friend class CanbusSendAction;
@@ -80,6 +102,8 @@ class Canbus : public Component {
   uint32_t can_id_;
   bool use_extended_id_;
   CanSpeed bit_rate_;
+  CallbackManager<void(uint32_t can_id, bool extended_id, bool rtr, const std::vector<uint8_t> &data)>
+      callback_manager_{};
 
   virtual bool setup_internal();
   virtual Error send_message(struct CanFrame *frame);
@@ -126,13 +150,18 @@ template<typename... Ts> class CanbusSendAction : public Action<Ts...>, public P
   std::vector<uint8_t> data_static_{};
 };
 
-class CanbusTrigger : public Trigger<std::vector<uint8_t>, uint32_t>, public Component {
+class CanbusTrigger : public Trigger<std::vector<uint8_t>, uint32_t, bool>, public Component {
   friend class Canbus;
 
  public:
   explicit CanbusTrigger(Canbus *parent, const std::uint32_t can_id, const std::uint32_t can_id_mask,
                          const bool use_extended_id)
       : parent_(parent), can_id_(can_id), can_id_mask_(can_id_mask), use_extended_id_(use_extended_id){};
+
+  void set_remote_transmission_request(bool remote_transmission_request) {
+    this->remote_transmission_request_ = remote_transmission_request;
+  }
+
   void setup() override { this->parent_->add_trigger(this); }
 
  protected:
@@ -140,6 +169,7 @@ class CanbusTrigger : public Trigger<std::vector<uint8_t>, uint32_t>, public Com
   uint32_t can_id_;
   uint32_t can_id_mask_;
   bool use_extended_id_;
+  optional<bool> remote_transmission_request_{};
 };
 
 }  // namespace canbus

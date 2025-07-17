@@ -1,7 +1,7 @@
 #include "pca9685_output.h"
-#include "esphome/core/log.h"
-#include "esphome/core/helpers.h"
 #include "esphome/core/hal.h"
+#include "esphome/core/helpers.h"
+#include "esphome/core/log.h"
 
 namespace esphome {
 namespace pca9685 {
@@ -21,13 +21,14 @@ static const uint8_t PCA9685_REGISTER_LED0 = 0x06;
 static const uint8_t PCA9685_REGISTER_PRE_SCALE = 0xFE;
 
 static const uint8_t PCA9685_MODE1_RESTART = 0b10000000;
+static const uint8_t PCA9685_MODE1_EXTCLK = 0b01000000;
 static const uint8_t PCA9685_MODE1_AUTOINC = 0b00100000;
 static const uint8_t PCA9685_MODE1_SLEEP = 0b00010000;
 
 void PCA9685Output::setup() {
-  ESP_LOGCONFIG(TAG, "Setting up PCA9685OutputComponent...");
+  ESP_LOGCONFIG(TAG, "Running setup");
 
-  ESP_LOGV(TAG, "  Resetting devices...");
+  ESP_LOGV(TAG, "  Resetting devices");
   if (!this->write_bytes(PCA9685_REGISTER_SOFTWARE_RESET, nullptr, 0)) {
     this->mark_failed();
     return;
@@ -42,14 +43,6 @@ void PCA9685Output::setup() {
     return;
   }
 
-  int pre_scaler = static_cast<int>((25000000 / (4096 * this->frequency_)) - 1);
-  if (pre_scaler > 255)
-    pre_scaler = 255;
-  if (pre_scaler < 3)
-    pre_scaler = 3;
-
-  ESP_LOGV(TAG, "  -> Prescaler: %d", pre_scaler);
-
   uint8_t mode1;
   if (!this->read_byte(PCA9685_REGISTER_MODE1, &mode1)) {
     this->mark_failed();
@@ -59,6 +52,20 @@ void PCA9685Output::setup() {
   if (!this->write_byte(PCA9685_REGISTER_MODE1, mode1)) {
     this->mark_failed();
     return;
+  }
+
+  int pre_scaler = 3;
+  if (this->extclk_) {
+    mode1 = mode1 | PCA9685_MODE1_EXTCLK;
+    if (!this->write_byte(PCA9685_REGISTER_MODE1, mode1)) {
+      this->mark_failed();
+      return;
+    }
+  } else {
+    pre_scaler = static_cast<int>((25000000 / (4096 * this->frequency_)) - 1);
+    pre_scaler = clamp(pre_scaler, 3, 255);
+
+    ESP_LOGV(TAG, "  -> Prescaler: %d", pre_scaler);
   }
   if (!this->write_byte(PCA9685_REGISTER_PRE_SCALE, pre_scaler)) {
     this->mark_failed();
@@ -76,9 +83,18 @@ void PCA9685Output::setup() {
 }
 
 void PCA9685Output::dump_config() {
-  ESP_LOGCONFIG(TAG, "PCA9685:");
-  ESP_LOGCONFIG(TAG, "  Mode: 0x%02X", this->mode_);
-  ESP_LOGCONFIG(TAG, "  Frequency: %.0f Hz", this->frequency_);
+  ESP_LOGCONFIG(TAG,
+                "PCA9685:\n"
+                "  Mode: 0x%02X",
+                this->mode_);
+  if (this->extclk_) {
+    ESP_LOGCONFIG(TAG, "  EXTCLK: enabled");
+  } else {
+    ESP_LOGCONFIG(TAG,
+                  "  EXTCLK: disabled\n"
+                  "  Frequency: %.0f Hz",
+                  this->frequency_);
+  }
   if (this->is_failed()) {
     ESP_LOGE(TAG, "Setting up PCA9685 failed!");
   }
@@ -89,8 +105,9 @@ void PCA9685Output::loop() {
     return;
 
   const uint16_t num_channels = this->max_channel_ - this->min_channel_ + 1;
+  const uint16_t phase_delta_begin = 4096 / num_channels;
   for (uint8_t channel = this->min_channel_; channel <= this->max_channel_; channel++) {
-    uint16_t phase_begin = uint16_t(channel - this->min_channel_) / num_channels * 4096;
+    uint16_t phase_begin = (channel - this->min_channel_) * phase_delta_begin;
     uint16_t phase_end;
     uint16_t amount = this->pwm_amounts_[channel];
     if (amount == 0) {

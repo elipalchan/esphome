@@ -1,8 +1,10 @@
 #pragma once
 
-#include "esphome/core/log.h"
 #include "esphome/core/helpers.h"
+#include "esphome/core/log.h"
 #include "ndef_record.h"
+
+#include <vector>
 
 namespace esphome {
 namespace nfc {

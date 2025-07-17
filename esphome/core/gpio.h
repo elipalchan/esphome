@@ -9,7 +9,7 @@ namespace esphome {
     ESP_LOGCONFIG(TAG, prefix "%s", (pin)->dump_summary().c_str()); \
   }
 
-// put GPIO flags in a namepsace to not pollute esphome namespace
+// put GPIO flags in a namespace to not pollute esphome namespace
 namespace gpio {
 
 enum Flags : uint8_t {
@@ -53,6 +53,13 @@ class GPIOPin {
 
   virtual void pin_mode(gpio::Flags flags) = 0;
 
+  /**
+   * @brief Retrieve GPIO pin flags.
+   *
+   * @return The GPIO flags describing the pin mode and properties.
+   */
+  virtual gpio::Flags get_flags() const = 0;
+
   virtual bool digital_read() = 0;
 
   virtual void digital_write(bool value) = 0;
@@ -73,7 +80,7 @@ class ISRInternalGPIOPin {
   void pin_mode(gpio::Flags flags);
 
  protected:
-  void *arg_ = nullptr;
+  void *arg_{nullptr};
 };
 
 class InternalGPIOPin : public GPIOPin {

@@ -1,14 +1,11 @@
-import typing
-from typing import Union, List
-
 import collections
 import io
 import logging
 import os
+from pathlib import Path
 import re
 import subprocess
 import sys
-from pathlib import Path
 
 from esphome import const
 
@@ -35,7 +32,7 @@ class RegistryEntry:
         return Schema(self.raw_schema)
 
 
-class Registry(dict):
+class Registry(dict[str, RegistryEntry]):
     def __init__(self, base_schema=None, type_id_key=None):
         super().__init__()
         self.base_schema = base_schema or {}
@@ -58,7 +55,7 @@ class SimpleRegistry(dict):
         return decorator
 
 
-def safe_print(message=""):
+def safe_print(message="", end="\n"):
     from esphome.core import CORE
 
     if CORE.dashboard:
@@ -68,18 +65,24 @@ def safe_print(message=""):
             pass
 
     try:
-        print(message)
+        print(message, end=end)
         return
     except UnicodeEncodeError:
         pass
 
     try:
-        print(message.encode("utf-8", "backslashreplace"))
+        print(message.encode("utf-8", "backslashreplace"), end=end)
     except UnicodeEncodeError:
         try:
-            print(message.encode("ascii", "backslashreplace"))
+            print(message.encode("ascii", "backslashreplace"), end=end)
         except UnicodeEncodeError:
             print("Cannot print line because of invalid locale!")
+
+
+def safe_input(prompt=""):
+    if prompt:
+        safe_print(prompt, end="")
+    return input()
 
 
 def shlex_quote(s):
@@ -152,14 +155,13 @@ class RedirectText:
         # any caller.
         return len(s)
 
-    # pylint: disable=no-self-use
     def isatty(self):
         return True
 
 
 def run_external_command(
     func, *cmd, capture_stdout: bool = False, filter_lines: str = None
-) -> Union[int, str]:
+) -> int | str:
     """
     Run a function from an external package that acts like a main method.
 
@@ -192,7 +194,7 @@ def run_external_command(
     try:
         sys.argv = list(cmd)
         sys.exit = mock_exit
-        return func() or 0
+        retval = func() or 0
     except KeyboardInterrupt:  # pylint: disable=try-except-raise
         raise
     except SystemExit as err:
@@ -208,9 +210,10 @@ def run_external_command(
         sys.stdout = orig_stdout
         sys.stderr = orig_stderr
 
-        if capture_stdout:
-            # pylint: disable=lost-exception
-            return cap_stdout.getvalue()
+    if capture_stdout:
+        return cap_stdout.getvalue()
+
+    return retval
 
 
 def run_external_process(*cmd, **kwargs):
@@ -243,7 +246,7 @@ def is_dev_esphome_version():
     return "dev" in const.__version__
 
 
-def parse_esphome_version() -> typing.Tuple[int, int, int]:
+def parse_esphome_version() -> tuple[int, int, int]:
     match = re.match(r"^(\d+).(\d+).(\d+)(-dev\d*|b\d*)?$", const.__version__)
     if match is None:
         raise ValueError(f"Failed to parse ESPHome version '{const.__version__}'")
@@ -283,7 +286,7 @@ class SerialPort:
 
 
 # from https://github.com/pyserial/pyserial/blob/master/serial/tools/list_ports.py
-def get_serial_ports() -> List[SerialPort]:
+def get_serial_ports() -> list[SerialPort]:
     from serial.tools.list_ports import comports
 
     result = []

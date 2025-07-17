@@ -42,13 +42,13 @@ Here everything is combined in `yield` expressions. You await other coroutines u
 the last `yield` expression defines what is returned.
 """
 
-import collections
+from collections.abc import Awaitable, Callable, Generator, Iterator
 import functools
 import heapq
 import inspect
 import logging
 import types
-from typing import Any, Awaitable, Callable, Generator, Iterator, List, Tuple
+from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -125,7 +125,7 @@ def _flatten_generator(gen: Generator[Any, Any, Any]):
             ret = to_send if e.value is None else e.value
             return ret
 
-        if isinstance(val, collections.abc.Awaitable):
+        if isinstance(val, Awaitable):
             # yielded object that is awaitable (like `yield some_new_style_method()`)
             # yield from __await__() like actual coroutines would.
             to_send = yield from val.__await__()
@@ -177,7 +177,7 @@ class _Task:
         return _Task(priority, self.id_number, self.iterator, self.original_function)
 
     @property
-    def _cmp_tuple(self) -> Tuple[float, int]:
+    def _cmp_tuple(self) -> tuple[float, int]:
         return (-self.priority, self.id_number)
 
     def __eq__(self, other):
@@ -194,7 +194,7 @@ class FakeEventLoop:
     """Emulate an asyncio EventLoop to run some registered coroutine jobs in sequence."""
 
     def __init__(self):
-        self._pending_tasks: List[_Task] = []
+        self._pending_tasks: list[_Task] = []
         self._task_counter = 0
 
     def add_job(self, func, *args, **kwargs):
