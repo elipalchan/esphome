@@ -38,6 +38,8 @@ static const espbt::ESPBTUUID POWERPAL_CHARACTERISTIC_READING_BATCH_SIZE_UUID =
     espbt::ESPBTUUID::from_raw("59DA0013-12F4-25A6-7D4F-55961DCE4205");  // indicate, notify, read, write
 static const espbt::ESPBTUUID POWERPAL_CHARACTERISTIC_MEASUREMENT_UUID =
     espbt::ESPBTUUID::from_raw("59DA0001-12F4-25A6-7D4F-55961DCE4205");  // notify, read, write
+static const espbt::ESPBTUUID POWERPAL_CHARACTERISTIC_MEASUREMENT_ACCESS_UUID =
+    espbt::ESPBTUUID::from_raw("59DA0002-12F4-25A6-7D4F-55961DCE4205");  // indicate, write
 static const espbt::ESPBTUUID POWERPAL_CHARACTERISTIC_UUID_UUID =
     espbt::ESPBTUUID::from_raw("59DA0009-12F4-25A6-7D4F-55961DCE4205");  // indicate, notify, read, write
 static const espbt::ESPBTUUID POWERPAL_CHARACTERISTIC_SERIAL_UUID =
@@ -52,6 +54,11 @@ static const uint8_t seconds_in_minute = 60;    // seconds
 static const float kw_to_w_conversion = 1000.0;    // conversion ratio
 
 
+
+struct TimedMeasurement {
+  float value;
+  time_t timestamp;
+};
 
 class Powerpal : public esphome::ble_client::BLEClientNode, public Component {
   // class Powerpal : public esphome::ble_client::BLEClientNode, public PollingComponent {
@@ -94,6 +101,7 @@ class Powerpal : public esphome::ble_client::BLEClientNode, public Component {
   void decode_(const uint8_t *data, uint16_t length);
   void parse_battery_(const uint8_t *data, uint16_t length);
   void parse_measurement_(const uint8_t *data, uint16_t length);
+  void parse_historical_measurement_(const uint8_t *data, uint16_t length);
  
   std::string uuid_to_device_id_(const uint8_t *data, uint16_t length);
   std::string serial_to_apikey_(const uint8_t *data, uint16_t length);
@@ -132,12 +140,15 @@ class Powerpal : public esphome::ble_client::BLEClientNode, public Component {
   uint16_t pairing_code_char_handle_ = 0x2e;
   uint16_t reading_batch_size_char_handle_ = 0x33;
   uint16_t measurement_char_handle_ = 0x14;
+  uint16_t measurement_access_char_handle_ = 0xXX; // set correct handle after discovery
 
   uint16_t battery_char_handle_ = 0x10;
   uint16_t led_sensitivity_char_handle_ = 0x25;
   uint16_t firmware_char_handle_ = 0x3b;
   uint16_t uuid_char_handle_ = 0x28;
   uint16_t serial_number_char_handle_ = 0x2b;
+
+  std::vector<TimedMeasurement> pending_measurements_;
 };
 
 }  
