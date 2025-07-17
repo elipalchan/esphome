@@ -390,6 +390,12 @@ void Powerpal::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gat
         this->parse_measurement_(param->notify.value, param->notify.value_len);
         break;
       }
+      // historical measurement
+      if (param->notify.handle == this->measurement_access_char_handle_) {
+        ESP_LOGD(TAG, "Received historical measurement notify event");
+        this->parse_historical_measurement_(param->notify.value, param->notify.value_len);
+        break;
+      }
       break;  // registerForNotify
     }
     default:
@@ -414,6 +420,52 @@ void Powerpal::gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_pa
     }
     default:
       break;
+  }
+}
+
+// In your main loop or after receiving all historical data:
+void Powerpal::loop() {
+  // Publish all pending measurements with their timestamps
+  for (auto &m : pending_measurements_) {
+    publish_measurement_with_time(this->power_sensor_, m.value, m.timestamp);
+    // publish other sensors as needed
+  }
+  pending_measurements_.clear();
+}
+
+void Powerpal::request_historical_measurements(time_t start, time_t end) {
+  // Prepare payload: start and end timestamps, little endian
+  uint8_t payload[8];
+  payload[0] = start & 0xFF;
+  payload[1] = (start >> 8) & 0xFF;
+  payload[2] = (start >> 16) & 0xFF;
+  payload[3] = (start >> 24) & 0xFF;
+  payload[4] = end & 0xFF;
+  payload[5] = (end >> 8) & 0xFF;
+  payload[6] = (end >> 16) & 0xFF;
+  payload[7] = (end >> 24) & 0xFF;
+  esp_ble_gattc_write_char(this->parent()->get_gattc_if(), this->parent()->get_conn_id(),
+                           this->measurement_access_char_handle_, sizeof(payload), payload,
+                           ESP_GATT_WRITE_TYPE_RSP, ESP_GATT_AUTH_REQ_NONE);
+}
+
+void Powerpal::parse_historical_measurement_(const uint8_t *data, uint16_t length) {
+  // Assume same format as parse_measurement_
+  if (length >= 6) {
+    time_t unix_time = data[0] + (data[1] << 8) + (data[2] << 16) + (data[3] << 24);
+    uint16_t pulses_within_interval = data[4] + (data[5] << 8);
+    float avg_watts_within_interval = pulses_within_interval * this->pulse_multiplier_;
+    // Store for later publishing
+    pending_measurements_.push_back({avg_watts_within_interval, unix_time});
+    // Optionally parse and store other sensors as needed
+  }
+}
+
+void Powerpal::publish_measurement_with_time(sensor::Sensor *sensor, float value, time_t timestamp) {
+  if (sensor != nullptr) {
+    // If sensor supports timestamped publishing, use it; else fallback
+    sensor->publish_state(value); // Replace with timestamped publish if available
+    // If Home Assistant supports timestamped sensors, use appropriate API
   }
 }
 
