@@ -40,6 +40,8 @@ CONF_TIME_STAMP = "timestamp"
 CONF_PULSES = "pulses"
 CONF_COST = "cost"
 CONF_DAILY_PULSES = "daily_pulses"
+CONF_HISTORICAL_START = "historical_start"
+CONF_HISTORICAL_END = "historical_end"
 
 def _validate(config):
     if CONF_DAILY_ENERGY in config and CONF_TIME_ID not in config:
@@ -133,6 +135,8 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(
                 CONF_POWERPAL_APIKEY
             ): powerpal_apikey,  # apikey (optional) # if not configured, will grab from device
+            cv.Optional(CONF_HISTORICAL_START): cv.int_,
+            cv.Optional(CONF_HISTORICAL_END): cv.int_,
             # upload interval (optional)
             # action to enable or disable peak
         }
@@ -205,3 +209,6 @@ async def to_code(config):
     if CONF_TIME_ID in config:
         time_ = await cg.get_variable(config[CONF_TIME_ID])
         cg.add(var.set_time(time_))
+
+    if CONF_HISTORICAL_START in config and CONF_HISTORICAL_END in config:
+        cg.add(var.request_historical_measurements(config[CONF_HISTORICAL_START], config[CONF_HISTORICAL_END]))
