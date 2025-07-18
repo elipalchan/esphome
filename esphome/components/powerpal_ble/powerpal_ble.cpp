@@ -443,7 +443,7 @@ void Powerpal::loop() {
 void Powerpal::register_manual_historical_polling_service() {
   // Register an ESPHome API/web service called "powerpal_poll_historical"
   // Accepts optional start and end timestamps (as int64)
-  register_service("powerpal_poll_historical", {"start", "end"}, [this](int64_t start, int64_t end) {
+  this->register_service("powerpal_poll_historical", {"start", "end"}, [this](int64_t start, int64_t end) {
     this->trigger_manual_historical_polling(static_cast<time_t>(start), static_cast<time_t>(end));
   });
 }
