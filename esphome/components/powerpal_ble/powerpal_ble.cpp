@@ -440,14 +440,6 @@ void Powerpal::loop() {
   pending_measurements_.clear();
 }
 
-void Powerpal::register_manual_historical_polling_service() {
-  // Register an ESPHome API/web service called "powerpal_poll_historical"
-  // Accepts optional start and end timestamps (as int64)
-  this->register_service("powerpal_poll_historical", {"start", "end"}, [this](int64_t start, int64_t end) {
-    this->trigger_manual_historical_polling(static_cast<time_t>(start), static_cast<time_t>(end));
-  });
-}
-
 void Powerpal::trigger_manual_historical_polling(time_t start, time_t end) {
   ESP_LOGI(TAG, "Manual API/Web event: Triggering historical polling.");
   this->historical_polled_ = false; // allow polling again if desired
