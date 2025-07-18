@@ -448,8 +448,8 @@ void Powerpal::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gat
     case ESP_GATTC_SEARCH_RES_EVT: {
       // Called for each discovered characteristic/service
       auto &sr = param->search_res;
-      ESP_LOGD(TAG, "SEARCH_RES: service uuid: %s, char uuid: %s, handle: %d",
-               sr.uuid.to_string().c_str(), sr.char_id.uuid.to_string().c_str(), sr.char_id.handle);
+      // Remove problematic debug print, or replace with handle only:
+      ESP_LOGD(TAG, "SEARCH_RES: char handle: %d", sr.char_id.handle);
 
       // Example: match UUIDs and store handles
       if (sr.char_id.uuid == POWERPAL_CHARACTERISTIC_PAIRING_CODE_UUID) {
