@@ -505,38 +505,3 @@ void Powerpal::publish_measurement_with_time(sensor::Sensor *sensor, float value
 }  // namespace esphome
 
 #endif
-  }
-  if (historical_polled_) return; // Only poll once per startup
-  time_t start = 0;
-  time_t end = this->startup_time_;
-  if (historical_start_override_days_ > 0) {
-    // Calculate midnight X days ago
-    time_t now = ::time(nullptr);
-    struct tm midnight_tm = *::localtime(&now);
-    midnight_tm.tm_hour = 0;
-    midnight_tm.tm_min = 0;
-    midnight_tm.tm_sec = 0;
-    midnight_tm.tm_mday -= historical_start_override_days_;
-    // Normalize date
-    start = ::mktime(&midnight_tm);
-    ESP_LOGI(TAG, "Using override: polling historical data from midnight %d days ago (%ld) to startup (%ld)", historical_start_override_days_, start, end);
-  } else if (historical_start_sensor_ != nullptr) {
-    float start_val = historical_start_sensor_->state;
-    if (!std::isnan(start_val)) {
-      start = static_cast<time_t>(start_val);
-      ESP_LOGI(TAG, "Using sensor value: polling historical data from %ld to startup (%ld)", start, end);
-    } else {
-      ESP_LOGW(TAG, "Historical start sensor value is NaN, skipping historical polling.");
-    }
-  } else {
-    ESP_LOGI(TAG, "No historical start override or sensor configured, skipping historical polling.");
-  }
-  if (start > 0 && end > start) {
-    ESP_LOGI(TAG, "Requesting historical measurements: start=%ld end=%ld", start, end);
-    request_historical_measurements(start, end);
-    historical_polled_ = true;
-  }
-}  // namespace powerpal_ble
-}  // namespace esphome
-
-#endif
