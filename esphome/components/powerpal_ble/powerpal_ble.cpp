@@ -447,35 +447,35 @@ void Powerpal::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gat
     }
     case ESP_GATTC_SEARCH_RES_EVT: {
       auto &sr = param->search_res;
-      ESP_LOGD(TAG, "SEARCH_RES: char handle: %d", sr.char_handle);
+      ESP_LOGD(TAG, "SEARCH_RES: char handle: %d", sr.handle);
 
-      if (sr.char_uuid == POWERPAL_CHARACTERISTIC_PAIRING_CODE_UUID) {
-        this->pairing_code_char_handle_ = sr.char_handle;
-        ESP_LOGD(TAG, "Found pairing code characteristic handle: %d", sr.char_handle);
-      } else if (sr.char_uuid == POWERPAL_CHARACTERISTIC_READING_BATCH_SIZE_UUID) {
-        this->reading_batch_size_char_handle_ = sr.char_handle;
-        ESP_LOGD(TAG, "Found reading batch size characteristic handle: %d", sr.char_handle);
-      } else if (sr.char_uuid == POWERPAL_CHARACTERISTIC_MEASUREMENT_UUID) {
-        this->measurement_char_handle_ = sr.char_handle;
-        ESP_LOGD(TAG, "Found measurement characteristic handle: %d", sr.char_handle);
-      } else if (sr.char_uuid == POWERPAL_CHARACTERISTIC_UUID_UUID) {
-        this->uuid_char_handle_ = sr.char_handle;
-        ESP_LOGD(TAG, "Found UUID characteristic handle: %d", sr.char_handle);
-      } else if (sr.char_uuid == POWERPAL_CHARACTERISTIC_SERIAL_UUID) {
-        this->serial_number_char_handle_ = sr.char_handle;
-        ESP_LOGD(TAG, "Found serial number characteristic handle: %d", sr.char_handle);
-      } else if (sr.char_uuid == POWERPAL_CHARACTERISTIC_BATTERY_UUID) {
-        this->battery_char_handle_ = sr.char_handle;
-        ESP_LOGD(TAG, "Found battery characteristic handle: %d", sr.char_handle);
-      } else if (sr.char_uuid == POWERPAL_CHARACTERISTIC_FIRMWARE_UUID) {
-        this->firmware_char_handle_ = sr.char_handle;
-        ESP_LOGD(TAG, "Found firmware characteristic handle: %d", sr.char_handle);
-      } else if (sr.char_uuid == POWERPAL_CHARACTERISTIC_LED_SENSITIVITY_UUID) {
-        this->led_sensitivity_char_handle_ = sr.char_handle;
-        ESP_LOGD(TAG, "Found LED sensitivity characteristic handle: %d", sr.char_handle);
-      } else if (sr.char_uuid == POWERPAL_CHARACTERISTIC_MEASUREMENT_ACCESS_UUID) {
-        this->measurement_access_char_handle_ = sr.char_handle;
-        ESP_LOGD(TAG, "Found measurement access characteristic handle: %d", sr.char_handle);
+      if (sr.uuid == POWERPAL_CHARACTERISTIC_PAIRING_CODE_UUID) {
+        this->pairing_code_char_handle_ = sr.handle;
+        ESP_LOGD(TAG, "Found pairing code characteristic handle: %d", sr.handle);
+      } else if (sr.uuid == POWERPAL_CHARACTERISTIC_READING_BATCH_SIZE_UUID) {
+        this->reading_batch_size_char_handle_ = sr.handle;
+        ESP_LOGD(TAG, "Found reading batch size characteristic handle: %d", sr.handle);
+      } else if (sr.uuid == POWERPAL_CHARACTERISTIC_MEASUREMENT_UUID) {
+        this->measurement_char_handle_ = sr.handle;
+        ESP_LOGD(TAG, "Found measurement characteristic handle: %d", sr.handle);
+      } else if (sr.uuid == POWERPAL_CHARACTERISTIC_UUID_UUID) {
+        this->uuid_char_handle_ = sr.handle;
+        ESP_LOGD(TAG, "Found UUID characteristic handle: %d", sr.handle);
+      } else if (sr.uuid == POWERPAL_CHARACTERISTIC_SERIAL_UUID) {
+        this->serial_number_char_handle_ = sr.handle;
+        ESP_LOGD(TAG, "Found serial number characteristic handle: %d", sr.handle);
+      } else if (sr.uuid == POWERPAL_CHARACTERISTIC_BATTERY_UUID) {
+        this->battery_char_handle_ = sr.handle;
+        ESP_LOGD(TAG, "Found battery characteristic handle: %d", sr.handle);
+      } else if (sr.uuid == POWERPAL_CHARACTERISTIC_FIRMWARE_UUID) {
+        this->firmware_char_handle_ = sr.handle;
+        ESP_LOGD(TAG, "Found firmware characteristic handle: %d", sr.handle);
+      } else if (sr.uuid == POWERPAL_CHARACTERISTIC_LED_SENSITIVITY_UUID) {
+        this->led_sensitivity_char_handle_ = sr.handle;
+        ESP_LOGD(TAG, "Found LED sensitivity characteristic handle: %d", sr.handle);
+      } else if (sr.uuid == POWERPAL_CHARACTERISTIC_MEASUREMENT_ACCESS_UUID) {
+        this->measurement_access_char_handle_ = sr.handle;
+        ESP_LOGD(TAG, "Found measurement access characteristic handle: %d", sr.handle);
       }
       // ...add more as needed...
       break;
@@ -600,7 +600,4 @@ void Powerpal::publish_measurement_with_time(sensor::Sensor *sensor, float value
 }  // namespace powerpal_ble
 }  // namespace esphome
 
-#endif
-#endif
-#endif
 #endif
