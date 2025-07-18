@@ -94,8 +94,11 @@ class Powerpal : public esphome::ble_client::BLEClientNode, public Component {
   void set_device_id(std::string powerpal_device_id) { powerpal_device_id_ = powerpal_device_id; }
   void set_apikey(std::string powerpal_apikey) { powerpal_apikey_ = powerpal_apikey; }
   void set_energy_cost(double energy_cost) { energy_cost_ = energy_cost; }
+  void set_disable_historical_polling(bool disable) { disable_historical_polling_ = disable; }
 
   uint64_t daily_pulses_{0};
+  void register_manual_historical_polling_service();
+  void trigger_manual_historical_polling(time_t start = 0, time_t end = 0);
  protected:
   std::string pkt_to_hex_(const uint8_t *data, uint16_t len);
   void decode_(const uint8_t *data, uint16_t length);
@@ -118,7 +121,6 @@ class Powerpal : public esphome::ble_client::BLEClientNode, public Component {
   sensor::Sensor *daily_pulses_sensor_{nullptr};
   sensor::Sensor *watt_hours_sensor_{nullptr};
   sensor::Sensor *timestamp_sensor_{nullptr};
- 
 
 #ifdef USE_TIME
   optional<time::RealTimeClock *> time_{};
@@ -147,11 +149,13 @@ class Powerpal : public esphome::ble_client::BLEClientNode, public Component {
   uint16_t firmware_char_handle_ = 0x3b;
   uint16_t uuid_char_handle_ = 0x28;
   uint16_t serial_number_char_handle_ = 0x2b;
-
+  bool historical_polled_{false};
   std::vector<TimedMeasurement> pending_measurements_;
+  bool disable_historical_polling_{false}; // Logging improvements added in .cpp for clarity of historical polling and sensor publishing
 };
 
 }  
 }  
 
+#endif
 #endif
