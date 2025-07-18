@@ -169,8 +169,22 @@ static const char* gattc_event_to_str(esp_gattc_cb_event_t event) {
     case ESP_GATTC_SEARCH_CMPL_EVT: return "ESP_GATTC_SEARCH_CMPL_EVT";
     case ESP_GATTC_NOTIFY_EVT: return "ESP_GATTC_NOTIFY_EVT";
     case ESP_GATTC_OPEN_EVT: return "ESP_GATTC_OPEN_EVT";
-    // Add more cases as needed for your debugging
-    default: return "UNKNOWN_EVT";
+    case ESP_GATTC_CFG_MTU_EVT: return "ESP_GATTC_CFG_MTU_EVT";
+    case ESP_GATTC_SEARCH_RES_EVT: return "ESP_GATTC_SEARCH_RES_EVT";
+    case ESP_GATTC_READ_DESCR_EVT: return "ESP_GATTC_READ_DESCR_EVT";
+    case ESP_GATTC_WRITE_DESCR_EVT: return "ESP_GATTC_WRITE_DESCR_EVT";
+    case ESP_GATTC_SRVC_CHG_EVT: return "ESP_GATTC_SRVC_CHG_EVT";
+    case ESP_GATTC_ENC_CMPL_CB_EVT: return "ESP_GATTC_ENC_CMPL_CB_EVT";
+    case ESP_GATTC_UNREG_EVT: return "ESP_GATTC_UNREG_EVT";
+    case ESP_GATTC_CLOSE_EVT: return "ESP_GATTC_CLOSE_EVT";
+    case ESP_GATTC_SET_ASSOC_EVT: return "ESP_GATTC_SET_ASSOC_EVT";
+    case ESP_GATTC_GET_ADDR_LIST_EVT: return "ESP_GATTC_GET_ADDR_LIST_EVT";
+    // Add more cases as needed for your platform
+    default: {
+      static char buf[32];
+      snprintf(buf, sizeof(buf), "UNKNOWN_EVT_%d", event);
+      return buf;
+    }
   }
 }
 
@@ -471,6 +485,10 @@ void Powerpal::trigger_manual_historical_polling(const std::string& start_str, c
   ESP_LOGI(TAG, "Manual API/Web event: Triggering historical polling.");
 
   auto parse_datetime = [](const std::string& datetime) -> time_t {
+    // If string is all digits, treat as unix timestamp
+    if (!datetime.empty() && std::all_of(datetime.begin(), datetime.end(), ::isdigit)) {
+      return static_cast<time_t>(std::stoll(datetime));
+    }
     std::tm tm = {};
     std::istringstream ss(datetime);
     ss >> std::get_time(&tm, "%Y-%m-%d %H:%M:%S");
