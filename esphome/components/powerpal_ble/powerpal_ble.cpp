@@ -207,54 +207,52 @@ void Powerpal::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gat
       break;
     }
     case ESP_GATTC_SEARCH_CMPL_EVT: {
-      // auto *pairing_code_char_ = this->parent_->get_characteristic(POWERPAL_SERVICE_UUID,
-      // POWERPAL_CHARACTERISTIC_PAIRING_CODE_UUID); if (pairing_code_char_ == nullptr) {
-      //   ESP_LOGE(TAG, "[%s] No Powerpal service or Pairing Code Characteristic found at device, not a POWERPAL..?",
-      //             this->parent_->address_str().c_str());
-      //   break;
-      // } else {
-      //   this->pairing_code_char_handle_ = pairing_code_char_->handle;
-      // }
-
-      // auto *reading_batch_size_char_ = this->parent_->get_characteristic(POWERPAL_SERVICE_UUID,
-      // POWERPAL_CHARACTERISTIC_READING_BATCH_SIZE_UUID); if (reading_batch_size_char_ == nullptr) {
-      //   ESP_LOGE(TAG, "[%s] No Powerpal service or Reading Batch Size Characteristic found at device, not a
-      //   POWERPAL..?",
-      //             this->parent_->address_str().c_str());
-      //   break;
-      // } else {
-      //   this->reading_batch_size_char_handle_ = reading_batch_size_char_->handle;
-      // }
-
-      // auto *measurement_char_ = this->parent_->get_characteristic(POWERPAL_SERVICE_UUID,
-      // POWERPAL_CHARACTERISTIC_MEASUREMENT_UUID); if (measurement_char_ == nullptr) {
-      //   ESP_LOGE(TAG, "[%s] No Powerpal service or Measurement Characteristic found at device, not a POWERPAL..?",
-      //             this->parent_->address_str().c_str());
-      //   break;
-      // } else {
-      //   this->measurement_char_handle_ = measurement_char_->handle;
-      // }
-
-      // auto *uuid_char_ = this->parent_->get_characteristic(POWERPAL_SERVICE_UUID,
-      // POWERPAL_CHARACTERISTIC_UUID_UUID); if (uuid_char_ == nullptr) {
-      //   ESP_LOGE(TAG, "[%s] No Powerpal service or Measurement Characteristic found at device, not a POWERPAL..?",
-      //             this->parent_->address_str().c_str());
-      //   break;
-      // } else {
-      //   this->uuid_char_handle_ = uuid_char_->handle;
-      //   ESP_LOGE(TAG, "UUID HANDLE: %d",this->uuid_char_handle_);
-      // }
-
-      // auto *serial_char_ = this->parent_->get_characteristic(POWERPAL_SERVICE_UUID,
-      // POWERPAL_CHARACTERISTIC_SERIAL_UUID); if (serial_char_ == nullptr) {
-      //   ESP_LOGE(TAG, "[%s] No Powerpal service or Measurement Characteristic found at device, not a POWERPAL..?",
-      //             this->parent_->address_str().c_str());
-      //   break;
-      // } else {
-      //   this->serial_number_char_handle_ = serial_char_->handle;
-      //   ESP_LOGE(TAG, "SERIAL HANDLE: %d",this->serial_number_char_handle_);
-      // }
-
+      // Discover and assign characteristic handles using ESPHome BLE tracker API
+      auto *pairing_code_char = this->parent_->get_characteristic(POWERPAL_SERVICE_UUID, POWERPAL_CHARACTERISTIC_PAIRING_CODE_UUID);
+      if (pairing_code_char != nullptr) {
+        this->pairing_code_char_handle_ = pairing_code_char->handle;
+        ESP_LOGD(TAG, "Found pairing code characteristic handle: %d", pairing_code_char->handle);
+      }
+      auto *reading_batch_size_char = this->parent_->get_characteristic(POWERPAL_SERVICE_UUID, POWERPAL_CHARACTERISTIC_READING_BATCH_SIZE_UUID);
+      if (reading_batch_size_char != nullptr) {
+        this->reading_batch_size_char_handle_ = reading_batch_size_char->handle;
+        ESP_LOGD(TAG, "Found reading batch size characteristic handle: %d", reading_batch_size_char->handle);
+      }
+      auto *measurement_char = this->parent_->get_characteristic(POWERPAL_SERVICE_UUID, POWERPAL_CHARACTERISTIC_MEASUREMENT_UUID);
+      if (measurement_char != nullptr) {
+        this->measurement_char_handle_ = measurement_char->handle;
+        ESP_LOGD(TAG, "Found measurement characteristic handle: %d", measurement_char->handle);
+      }
+      auto *uuid_char = this->parent_->get_characteristic(POWERPAL_SERVICE_UUID, POWERPAL_CHARACTERISTIC_UUID_UUID);
+      if (uuid_char != nullptr) {
+        this->uuid_char_handle_ = uuid_char->handle;
+        ESP_LOGD(TAG, "Found UUID characteristic handle: %d", uuid_char->handle);
+      }
+      auto *serial_char = this->parent_->get_characteristic(POWERPAL_SERVICE_UUID, POWERPAL_CHARACTERISTIC_SERIAL_UUID);
+      if (serial_char != nullptr) {
+        this->serial_number_char_handle_ = serial_char->handle;
+        ESP_LOGD(TAG, "Found serial number characteristic handle: %d", serial_char->handle);
+      }
+      auto *battery_char = this->parent_->get_characteristic(POWERPAL_SERVICE_UUID, POWERPAL_CHARACTERISTIC_BATTERY_UUID);
+      if (battery_char != nullptr) {
+        this->battery_char_handle_ = battery_char->handle;
+        ESP_LOGD(TAG, "Found battery characteristic handle: %d", battery_char->handle);
+      }
+      auto *firmware_char = this->parent_->get_characteristic(POWERPAL_SERVICE_UUID, POWERPAL_CHARACTERISTIC_FIRMWARE_UUID);
+      if (firmware_char != nullptr) {
+        this->firmware_char_handle_ = firmware_char->handle;
+        ESP_LOGD(TAG, "Found firmware characteristic handle: %d", firmware_char->handle);
+      }
+      auto *led_sensitivity_char = this->parent_->get_characteristic(POWERPAL_SERVICE_UUID, POWERPAL_CHARACTERISTIC_LED_SENSITIVITY_UUID);
+      if (led_sensitivity_char != nullptr) {
+        this->led_sensitivity_char_handle_ = led_sensitivity_char->handle;
+        ESP_LOGD(TAG, "Found LED sensitivity characteristic handle: %d", led_sensitivity_char->handle);
+      }
+      auto *measurement_access_char = this->parent_->get_characteristic(POWERPAL_SERVICE_UUID, POWERPAL_CHARACTERISTIC_MEASUREMENT_ACCESS_UUID);
+      if (measurement_access_char != nullptr) {
+        this->measurement_access_char_handle_ = measurement_access_char->handle;
+        ESP_LOGD(TAG, "Found measurement access characteristic handle: %d", measurement_access_char->handle);
+      }
       break;
     }
     case ESP_GATTC_READ_CHAR_EVT: {
@@ -447,6 +445,16 @@ void Powerpal::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gat
     }
     case ESP_GATTC_SEARCH_RES_EVT: {
       auto &sr = param->search_res;
+      // If sr.handle and sr.uuid are not available, you must use the ESPHome BLE tracker API:
+      // Example:
+      // auto *charac = this->parent_->get_characteristic(POWERPAL_SERVICE_UUID, POWERPAL_CHARACTERISTIC_MEASUREMENT_UUID);
+      // if (charac != nullptr) {
+      //   this->measurement_char_handle_ = charac->handle;
+      //   ESP_LOGD(TAG, "Found measurement characteristic handle: %d", charac->handle);
+      // }
+      // return;
+
+      // If sr.handle and sr.uuid are available, use:
       ESP_LOGD(TAG, "SEARCH_RES: char handle: %d", sr.handle);
 
       if (sr.uuid == POWERPAL_CHARACTERISTIC_PAIRING_CODE_UUID) {
@@ -477,7 +485,6 @@ void Powerpal::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gat
         this->measurement_access_char_handle_ = sr.handle;
         ESP_LOGD(TAG, "Found measurement access characteristic handle: %d", sr.handle);
       }
-      // ...add more as needed...
       break;
     }
     default:
@@ -548,7 +555,6 @@ void Powerpal::trigger_manual_historical_polling(const std::string& start_str, c
     ESP_LOGI(TAG, "Manual polling: invalid range, skipping historical polling.");
   }
 }
-
 void Powerpal::request_historical_measurements(time_t start, time_t end) {
   // Prepare payload: start and end timestamps, little endian
   uint8_t payload[8];
@@ -561,12 +567,17 @@ void Powerpal::request_historical_measurements(time_t start, time_t end) {
   payload[6] = (end >> 16) & 0xFF;
   payload[7] = (end >> 24) & 0xFF;
 
-  // Use connection MTU to optimize transmission
   size_t max_payload = this->get_mtu() - 3; // 3 bytes for ATT header
   if (sizeof(payload) <= max_payload) {
-    esp_err_t err = esp_ble_gattc_write_char(this->parent()->get_gattc_if(), this->parent()->get_conn_id(),
-                           this->measurement_access_char_handle_, sizeof(payload), payload,
-                           ESP_GATT_WRITE_TYPE_RSP, ESP_GATT_AUTH_REQ_NONE);
+    esp_err_t err = esp_ble_gattc_write_char(
+      this->parent()->get_gattc_if(),
+      this->parent()->get_conn_id(),
+      this->measurement_access_char_handle_,
+      sizeof(payload),
+      payload,
+      ESP_GATT_WRITE_TYPE_RSP,
+      ESP_GATT_AUTH_REQ_NONE
+    );
     if (err != ESP_OK) {
       ESP_LOGE(TAG, "Failed to request historical measurements: %d", err);
     }
@@ -596,8 +607,7 @@ void Powerpal::publish_measurement_with_time(sensor::Sensor *sensor, float value
     // If Home Assistant supports timestamped sensors, use appropriate API
   }
 }
-
-}  // namespace powerpal_ble
-}  // namespace esphome
+}  // namespace powerpal_ble }
+}  // namespace esphome}
 
 #endif
