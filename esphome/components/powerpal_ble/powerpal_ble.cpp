@@ -159,7 +159,12 @@ void Powerpal::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gat
                                    esp_ble_gattc_cb_param_t *param) {
   switch (event) {
     case ESP_GATTC_DISCONNECT_EVT: {
+      ESP_LOGW(TAG, "BLE disconnected from Powerpal.");
       this->authenticated_ = false;
+      break;
+    }
+    case ESP_GATTC_CONNECT_EVT: {
+      ESP_LOGI(TAG, "BLE connected to Powerpal.");
       break;
     }
     case ESP_GATTC_SEARCH_CMPL_EVT: {
@@ -399,6 +404,7 @@ void Powerpal::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gat
       break;  // registerForNotify
     }
     default:
+      ESP_LOGD(TAG, "Unhandled GATTC event: %d", event);
       break;
   }
 }
@@ -425,12 +431,34 @@ void Powerpal::gap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_pa
 
 // In your main loop or after receiving all historical data:
 void Powerpal::loop() {
-  // Publish all pending measurements with their timestamps
+  // Only publish pending measurements, do NOT call poll_historical_if_configured_ automatically
   for (auto &m : pending_measurements_) {
     publish_measurement_with_time(this->power_sensor_, m.value, m.timestamp);
     // publish other sensors as needed
   }
   pending_measurements_.clear();
+}
+
+void Powerpal::register_manual_historical_polling_service() {
+  // Register an ESPHome API/web service called "powerpal_poll_historical"
+  // Accepts optional start and end timestamps (as int64)
+  register_service("powerpal_poll_historical", {"start", "end"}, [this](int64_t start, int64_t end) {
+    this->trigger_manual_historical_polling(static_cast<time_t>(start), static_cast<time_t>(end));
+  });
+}
+
+void Powerpal::trigger_manual_historical_polling(time_t start, time_t end) {
+  ESP_LOGI(TAG, "Manual API/Web event: Triggering historical polling.");
+  this->historical_polled_ = false; // allow polling again if desired
+
+  // If both start and end are provided, use them; otherwise do nothing
+  if (start > 0 && end > start) {
+    ESP_LOGI(TAG, "Manual polling with custom range: start=%ld end=%ld", start, end);
+    request_historical_measurements(start, end);
+    historical_polled_ = true;
+  } else {
+    ESP_LOGI(TAG, "Manual polling: invalid range, skipping historical polling.");
+  }
 }
 
 void Powerpal::request_historical_measurements(time_t start, time_t end) {
@@ -444,9 +472,12 @@ void Powerpal::request_historical_measurements(time_t start, time_t end) {
   payload[5] = (end >> 8) & 0xFF;
   payload[6] = (end >> 16) & 0xFF;
   payload[7] = (end >> 24) & 0xFF;
-  esp_ble_gattc_write_char(this->parent()->get_gattc_if(), this->parent()->get_conn_id(),
+  esp_err_t err = esp_ble_gattc_write_char(this->parent()->get_gattc_if(), this->parent()->get_conn_id(),
                            this->measurement_access_char_handle_, sizeof(payload), payload,
                            ESP_GATT_WRITE_TYPE_RSP, ESP_GATT_AUTH_REQ_NONE);
+  if (err != ESP_OK) {
+    ESP_LOGE(TAG, "Failed to request historical measurements: %d", err);
+  }
 }
 
 void Powerpal::parse_historical_measurement_(const uint8_t *data, uint16_t length) {
@@ -455,6 +486,7 @@ void Powerpal::parse_historical_measurement_(const uint8_t *data, uint16_t lengt
     time_t unix_time = data[0] + (data[1] << 8) + (data[2] << 16) + (data[3] << 24);
     uint16_t pulses_within_interval = data[4] + (data[5] << 8);
     float avg_watts_within_interval = pulses_within_interval * this->pulse_multiplier_;
+    ESP_LOGD(TAG, "Historical Measurement: timestamp=%ld pulses=%d avg_watts=%f", unix_time, pulses_within_interval, avg_watts_within_interval);
     // Store for later publishing
     pending_measurements_.push_back({avg_watts_within_interval, unix_time});
     // Optionally parse and store other sensors as needed
@@ -463,12 +495,47 @@ void Powerpal::parse_historical_measurement_(const uint8_t *data, uint16_t lengt
 
 void Powerpal::publish_measurement_with_time(sensor::Sensor *sensor, float value, time_t timestamp) {
   if (sensor != nullptr) {
-    // If sensor supports timestamped publishing, use it; else fallback
+    ESP_LOGD(TAG, "Publishing sensor value=%f at timestamp=%ld", value, timestamp);
     sensor->publish_state(value); // Replace with timestamped publish if available
     // If Home Assistant supports timestamped sensors, use appropriate API
   }
 }
 
+}  // namespace powerpal_ble
+}  // namespace esphome
+
+#endif
+  }
+  if (historical_polled_) return; // Only poll once per startup
+  time_t start = 0;
+  time_t end = this->startup_time_;
+  if (historical_start_override_days_ > 0) {
+    // Calculate midnight X days ago
+    time_t now = ::time(nullptr);
+    struct tm midnight_tm = *::localtime(&now);
+    midnight_tm.tm_hour = 0;
+    midnight_tm.tm_min = 0;
+    midnight_tm.tm_sec = 0;
+    midnight_tm.tm_mday -= historical_start_override_days_;
+    // Normalize date
+    start = ::mktime(&midnight_tm);
+    ESP_LOGI(TAG, "Using override: polling historical data from midnight %d days ago (%ld) to startup (%ld)", historical_start_override_days_, start, end);
+  } else if (historical_start_sensor_ != nullptr) {
+    float start_val = historical_start_sensor_->state;
+    if (!std::isnan(start_val)) {
+      start = static_cast<time_t>(start_val);
+      ESP_LOGI(TAG, "Using sensor value: polling historical data from %ld to startup (%ld)", start, end);
+    } else {
+      ESP_LOGW(TAG, "Historical start sensor value is NaN, skipping historical polling.");
+    }
+  } else {
+    ESP_LOGI(TAG, "No historical start override or sensor configured, skipping historical polling.");
+  }
+  if (start > 0 && end > start) {
+    ESP_LOGI(TAG, "Requesting historical measurements: start=%ld end=%ld", start, end);
+    request_historical_measurements(start, end);
+    historical_polled_ = true;
+  }
 }  // namespace powerpal_ble
 }  // namespace esphome
 
