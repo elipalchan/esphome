@@ -330,6 +330,9 @@ void Powerpal::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gat
       if (param->write.handle == this->pairing_code_char_handle_ && !this->authenticated_) {
         this->authenticated_ = true;
 
+        // Add a short delay to allow BLE stack to settle before subscribing to notifications
+        esphome::delay(100); // 100ms delay
+
         auto read_reading_batch_size_status =
             esp_ble_gattc_read_char(this->parent()->get_gattc_if(), this->parent()->get_conn_id(),
                                     this->reading_batch_size_char_handle_, ESP_GATT_AUTH_REQ_NONE);
