@@ -1,6 +1,7 @@
 #include "powerpal_ble.h"
 #include "esphome/core/log.h"
 #include "esphome/core/hal.h"
+#include "esphome/core/automation.h"
 
 #ifdef USE_ESP32
 namespace esphome {
