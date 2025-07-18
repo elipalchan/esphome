@@ -445,6 +445,44 @@ void Powerpal::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gat
       }
       break;  // registerForNotify
     }
+    case ESP_GATTC_SEARCH_RES_EVT: {
+      // Called for each discovered characteristic/service
+      auto &sr = param->search_res;
+      ESP_LOGD(TAG, "SEARCH_RES: service uuid: %s, char uuid: %s, handle: %d",
+               sr.uuid.to_string().c_str(), sr.char_uuid.to_string().c_str(), sr.handle);
+
+      // Example: match UUIDs and store handles
+      if (sr.char_uuid == POWERPAL_CHARACTERISTIC_PAIRING_CODE_UUID) {
+        this->pairing_code_char_handle_ = sr.handle;
+        ESP_LOGD(TAG, "Found pairing code characteristic handle: %d", sr.handle);
+      } else if (sr.char_uuid == POWERPAL_CHARACTERISTIC_READING_BATCH_SIZE_UUID) {
+        this->reading_batch_size_char_handle_ = sr.handle;
+        ESP_LOGD(TAG, "Found reading batch size characteristic handle: %d", sr.handle);
+      } else if (sr.char_uuid == POWERPAL_CHARACTERISTIC_MEASUREMENT_UUID) {
+        this->measurement_char_handle_ = sr.handle;
+        ESP_LOGD(TAG, "Found measurement characteristic handle: %d", sr.handle);
+      } else if (sr.char_uuid == POWERPAL_CHARACTERISTIC_UUID_UUID) {
+        this->uuid_char_handle_ = sr.handle;
+        ESP_LOGD(TAG, "Found UUID characteristic handle: %d", sr.handle);
+      } else if (sr.char_uuid == POWERPAL_CHARACTERISTIC_SERIAL_UUID) {
+        this->serial_number_char_handle_ = sr.handle;
+        ESP_LOGD(TAG, "Found serial number characteristic handle: %d", sr.handle);
+      } else if (sr.char_uuid == POWERPAL_CHARACTERISTIC_BATTERY_UUID) {
+        this->battery_char_handle_ = sr.handle;
+        ESP_LOGD(TAG, "Found battery characteristic handle: %d", sr.handle);
+      } else if (sr.char_uuid == POWERPAL_CHARACTERISTIC_FIRMWARE_UUID) {
+        this->firmware_char_handle_ = sr.handle;
+        ESP_LOGD(TAG, "Found firmware characteristic handle: %d", sr.handle);
+      } else if (sr.char_uuid == POWERPAL_CHARACTERISTIC_LED_SENSITIVITY_UUID) {
+        this->led_sensitivity_char_handle_ = sr.handle;
+        ESP_LOGD(TAG, "Found LED sensitivity characteristic handle: %d", sr.handle);
+      } else if (sr.char_uuid == POWERPAL_CHARACTERISTIC_MEASUREMENT_ACCESS_UUID) {
+        this->measurement_access_char_handle_ = sr.handle;
+        ESP_LOGD(TAG, "Found measurement access characteristic handle: %d", sr.handle);
+      }
+      // ...add more as needed...
+      break;
+    }
     default:
       ESP_LOGD(TAG, "Unhandled GATTC event: %d (%s)", event, gattc_event_to_str(event));
       break;
@@ -525,11 +563,19 @@ void Powerpal::request_historical_measurements(time_t start, time_t end) {
   payload[5] = (end >> 8) & 0xFF;
   payload[6] = (end >> 16) & 0xFF;
   payload[7] = (end >> 24) & 0xFF;
-  esp_err_t err = esp_ble_gattc_write_char(this->parent()->get_gattc_if(), this->parent()->get_conn_id(),
+
+  // Use connection MTU to optimize transmission
+  size_t max_payload = this->get_mtu() - 3; // 3 bytes for ATT header
+  if (sizeof(payload) <= max_payload) {
+    esp_err_t err = esp_ble_gattc_write_char(this->parent()->get_gattc_if(), this->parent()->get_conn_id(),
                            this->measurement_access_char_handle_, sizeof(payload), payload,
                            ESP_GATT_WRITE_TYPE_RSP, ESP_GATT_AUTH_REQ_NONE);
-  if (err != ESP_OK) {
-    ESP_LOGE(TAG, "Failed to request historical measurements: %d", err);
+    if (err != ESP_OK) {
+      ESP_LOGE(TAG, "Failed to request historical measurements: %d", err);
+    }
+  } else {
+    ESP_LOGW(TAG, "Payload larger than negotiated MTU (%d), implement chunking if needed.", this->get_mtu());
+    // ...chunking logic if needed...
   }
 }
 
