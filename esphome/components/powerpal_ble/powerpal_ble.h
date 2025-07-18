@@ -95,6 +95,9 @@ class Powerpal : public esphome::ble_client::BLEClientNode, public Component {
   void set_apikey(std::string powerpal_apikey) { powerpal_apikey_ = powerpal_apikey; }
   void set_energy_cost(double energy_cost) { energy_cost_ = energy_cost; }
   void set_disable_historical_polling(bool disable) { disable_historical_polling_ = disable; }
+  // Add getter/setter for MTU
+  void set_mtu(int mtu) { mtu_ = mtu; }
+  int get_mtu() const { return mtu_; }
 
   uint64_t daily_pulses_{0};
   void trigger_manual_historical_polling(const std::string& start_str, const std::string& end_str);
@@ -161,6 +164,9 @@ class Powerpal : public esphome::ble_client::BLEClientNode, public Component {
   void loop() override;
   void request_historical_measurements(time_t start, time_t end);
   void publish_measurement_with_time(sensor::Sensor *sensor, float value, time_t timestamp);
+
+  // Add member variable for connection MTU
+  int mtu_ = 23; // Default BLE MTU
 };
 
 }  
