@@ -168,5 +168,3 @@ class Powerpal : public esphome::ble_client::BLEClientNode, public Component {
 }  
 
 #endif
-#endif
-#endif
