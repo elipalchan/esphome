@@ -156,8 +156,25 @@ std::string Powerpal::serial_to_apikey_(const uint8_t *data, uint16_t length) {
 }
 
 
+// Helper function to convert GATTC event enum to string for debugging
+static const char* gattc_event_to_str(esp_gattc_cb_event_t event) {
+  switch (event) {
+    case ESP_GATTC_REG_EVT: return "ESP_GATTC_REG_EVT";
+    case ESP_GATTC_READ_CHAR_EVT: return "ESP_GATTC_READ_CHAR_EVT";
+    case ESP_GATTC_WRITE_CHAR_EVT: return "ESP_GATTC_WRITE_CHAR_EVT";
+    case ESP_GATTC_CONNECT_EVT: return "ESP_GATTC_CONNECT_EVT";
+    case ESP_GATTC_DISCONNECT_EVT: return "ESP_GATTC_DISCONNECT_EVT";
+    case ESP_GATTC_SEARCH_CMPL_EVT: return "ESP_GATTC_SEARCH_CMPL_EVT";
+    case ESP_GATTC_NOTIFY_EVT: return "ESP_GATTC_NOTIFY_EVT";
+    case ESP_GATTC_OPEN_EVT: return "ESP_GATTC_OPEN_EVT";
+    // Add more cases as needed for your debugging
+    default: return "UNKNOWN_EVT";
+  }
+}
+
 void Powerpal::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if,
                                    esp_ble_gattc_cb_param_t *param) {
+  ESP_LOGD(TAG, "GATTC event: %d (%s)", event, gattc_event_to_str(event));
   switch (event) {
     case ESP_GATTC_DISCONNECT_EVT: {
       ESP_LOGW(TAG, "BLE disconnected from Powerpal.");
