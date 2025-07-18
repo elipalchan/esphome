@@ -44,6 +44,12 @@ static const espbt::ESPBTUUID POWERPAL_CHARACTERISTIC_UUID_UUID =
     espbt::ESPBTUUID::from_raw("59DA0009-12F4-25A6-7D4F-55961DCE4205");  // indicate, notify, read, write
 static const espbt::ESPBTUUID POWERPAL_CHARACTERISTIC_SERIAL_UUID =
     espbt::ESPBTUUID::from_raw("59DA0010-12F4-25A6-7D4F-55961DCE4205");  // indicate, notify, read, write
+static const espbt::ESPBTUUID POWERPAL_CHARACTERISTIC_BATTERY_UUID =
+    espbt::ESPBTUUID::from_raw("59DA0012-12F4-25A6-7D4F-55961DCE4205");  // example UUID, replace with actual if needed
+static const espbt::ESPBTUUID POWERPAL_CHARACTERISTIC_FIRMWARE_UUID =
+    espbt::ESPBTUUID::from_raw("59DA0014-12F4-25A6-7D4F-55961DCE4205");  // example UUID, replace with actual if needed
+static const espbt::ESPBTUUID POWERPAL_CHARACTERISTIC_LED_SENSITIVITY_UUID =
+    espbt::ESPBTUUID::from_raw("59DA0015-12F4-25A6-7D4F-55961DCE4205");  // example UUID, replace with actual if needed
 
 static const espbt::ESPBTUUID POWERPAL_BATTERY_SERVICE_UUID = espbt::ESPBTUUID::from_uint16(0x180F);
 static const espbt::ESPBTUUID POWERPAL_BATTERY_CHARACTERISTIC_UUID = espbt::ESPBTUUID::from_uint16(0x2A19);
