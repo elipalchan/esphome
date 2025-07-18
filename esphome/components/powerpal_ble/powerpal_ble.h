@@ -97,7 +97,7 @@ class Powerpal : public esphome::ble_client::BLEClientNode, public Component {
   void set_disable_historical_polling(bool disable) { disable_historical_polling_ = disable; }
 
   uint64_t daily_pulses_{0};
-  void trigger_manual_historical_polling(time_t start = 0, time_t end = 0);
+  void trigger_manual_historical_polling(const std::string& start_str, const std::string& end_str);
  protected:
   std::string pkt_to_hex_(const uint8_t *data, uint16_t len);
   void decode_(const uint8_t *data, uint16_t length);
