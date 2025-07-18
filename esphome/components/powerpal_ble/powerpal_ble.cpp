@@ -179,6 +179,7 @@ static const char* gattc_event_to_str(esp_gattc_cb_event_t event) {
     case ESP_GATTC_CLOSE_EVT: return "ESP_GATTC_CLOSE_EVT";
     case ESP_GATTC_SET_ASSOC_EVT: return "ESP_GATTC_SET_ASSOC_EVT";
     case ESP_GATTC_GET_ADDR_LIST_EVT: return "ESP_GATTC_GET_ADDR_LIST_EVT";
+    case ESP_GATTC_PREP_WRITE_EVT: return "ESP_GATTC_PREP_WRITE_EVT";
     // Add more cases as needed for your platform
     default: {
       static char buf[32];
@@ -252,6 +253,19 @@ void Powerpal::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gat
       if (measurement_access_char != nullptr) {
         this->measurement_access_char_handle_ = measurement_access_char->handle;
         ESP_LOGD(TAG, "Found measurement access characteristic handle: %d", measurement_access_char->handle);
+      }
+      // Add this block to trigger reading batch size after search complete
+      if (this->reading_batch_size_char_handle_ != 0) {
+        ESP_LOGD(TAG, "Triggering read of reading batch size characteristic after search complete.");
+        auto status = esp_ble_gattc_read_char(
+          this->parent()->get_gattc_if(),
+          this->parent()->get_conn_id(),
+          this->reading_batch_size_char_handle_,
+          ESP_GATT_AUTH_REQ_NONE
+        );
+        if (status) {
+          ESP_LOGW(TAG, "Error sending read request for reading batch size after search complete, status=%d", status);
+        }
       }
       break;
     }
