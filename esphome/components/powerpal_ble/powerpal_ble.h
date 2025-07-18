@@ -160,7 +160,6 @@ class Powerpal : public esphome::ble_client::BLEClientNode, public Component {
 
   // Method declarations for new functions in .cpp
   void loop() override;
-  void register_manual_historical_polling_service();
   void request_historical_measurements(time_t start, time_t end);
   void publish_measurement_with_time(sensor::Sensor *sensor, float value, time_t timestamp);
 };
@@ -168,5 +167,6 @@ class Powerpal : public esphome::ble_client::BLEClientNode, public Component {
 }  
 }  
 
+#endif
 #endif
 #endif
