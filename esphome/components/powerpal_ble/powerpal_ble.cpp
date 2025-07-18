@@ -2,6 +2,8 @@
 #include "esphome/core/log.h"
 #include "esphome/core/hal.h"
 #include "esphome/core/automation.h"
+#include <sstream>
+#include <iomanip>
 
 #ifdef USE_ESP32
 namespace esphome {
@@ -183,6 +185,11 @@ void Powerpal::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gat
     }
     case ESP_GATTC_CONNECT_EVT: {
       ESP_LOGI(TAG, "BLE connected to Powerpal.");
+      break;
+    }
+    case ESP_GATTC_OPEN_EVT: {
+      // This event can occur before/after CONNECT_EVT, but is not used for state changes here.
+      ESP_LOGD(TAG, "ESP_GATTC_OPEN_EVT received. This is normal and may occur outside connecting state.");
       break;
     }
     case ESP_GATTC_SEARCH_CMPL_EVT: {
@@ -422,7 +429,7 @@ void Powerpal::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gat
       break;  // registerForNotify
     }
     default:
-      ESP_LOGD(TAG, "Unhandled GATTC event: %d", event);
+      ESP_LOGD(TAG, "Unhandled GATTC event: %d (%s)", event, gattc_event_to_str(event));
       break;
   }
 }
@@ -457,11 +464,26 @@ void Powerpal::loop() {
   pending_measurements_.clear();
 }
 
-void Powerpal::trigger_manual_historical_polling(time_t start, time_t end) {
+void Powerpal::trigger_manual_historical_polling(const std::string& start_str, const std::string& end_str) {
   ESP_LOGI(TAG, "Manual API/Web event: Triggering historical polling.");
+
+  auto parse_datetime = [](const std::string& datetime) -> time_t {
+    std::tm tm = {};
+    std::istringstream ss(datetime);
+    ss >> std::get_time(&tm, "%Y-%m-%d %H:%M:%S");
+    if (ss.fail()) {
+      ESP_LOGW(TAG, "Failed to parse datetime string: %s", datetime.c_str());
+      return 0;
+    }
+    tm.tm_isdst = -1;
+    return mktime(&tm);
+  };
+
+  time_t start = parse_datetime(start_str);
+  time_t end = parse_datetime(end_str);
+
   this->historical_polled_ = false; // allow polling again if desired
 
-  // If both start and end are provided, use them; otherwise do nothing
   if (start > 0 && end > start) {
     ESP_LOGI(TAG, "Manual polling with custom range: start=%ld end=%ld", start, end);
     request_historical_measurements(start, end);
