@@ -207,6 +207,3 @@ async def to_code(config):
     if CONF_TIME_ID in config:
         time_ = await cg.get_variable(config[CONF_TIME_ID])
         cg.add(var.set_time(time_))
-
-    # Register custom service for manual historical polling with optional parameters
-    cg.add(var.register_manual_historical_polling_service())
