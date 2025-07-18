@@ -142,7 +142,7 @@ class Powerpal : public esphome::ble_client::BLEClientNode, public Component {
   uint16_t pairing_code_char_handle_ = 0x2e;
   uint16_t reading_batch_size_char_handle_ = 0x33;
   uint16_t measurement_char_handle_ = 0x14;
-  uint16_t measurement_access_char_handle_ = 0xXX; // set correct handle after discovery
+  uint16_t measurement_access_char_handle_ = 0x15; // set correct handle after discovery
 
   uint16_t battery_char_handle_ = 0x10;
   uint16_t led_sensitivity_char_handle_ = 0x25;
@@ -152,6 +152,17 @@ class Powerpal : public esphome::ble_client::BLEClientNode, public Component {
   bool historical_polled_{false};
   std::vector<TimedMeasurement> pending_measurements_;
   bool disable_historical_polling_{false}; // Logging improvements added in .cpp for clarity of historical polling and sensor publishing
+
+  // Add missing member variables for historical polling logic
+  time_t startup_time_{0};
+  int historical_start_override_days_{0};
+  sensor::Sensor* historical_start_sensor_{nullptr};
+
+  // Method declarations for new functions in .cpp
+  void loop() override;
+  void register_manual_historical_polling_service();
+  void request_historical_measurements(time_t start, time_t end);
+  void publish_measurement_with_time(sensor::Sensor *sensor, float value, time_t timestamp);
 };
 
 }  
