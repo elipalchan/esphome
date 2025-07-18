@@ -444,46 +444,51 @@ void Powerpal::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gat
       break;  // registerForNotify
     }
     case ESP_GATTC_SEARCH_RES_EVT: {
-      auto &sr = param->search_res;
-      // If sr.handle and sr.uuid are not available, you must use the ESPHome BLE tracker API:
-      // Example:
-      // auto *charac = this->parent_->get_characteristic(POWERPAL_SERVICE_UUID, POWERPAL_CHARACTERISTIC_MEASUREMENT_UUID);
-      // if (charac != nullptr) {
-      //   this->measurement_char_handle_ = charac->handle;
-      //   ESP_LOGD(TAG, "Found measurement characteristic handle: %d", charac->handle);
-      // }
-      // return;
-
-      // If sr.handle and sr.uuid are available, use:
-      ESP_LOGD(TAG, "SEARCH_RES: char handle: %d", sr.handle);
-
-      if (sr.uuid == POWERPAL_CHARACTERISTIC_PAIRING_CODE_UUID) {
-        this->pairing_code_char_handle_ = sr.handle;
-        ESP_LOGD(TAG, "Found pairing code characteristic handle: %d", sr.handle);
-      } else if (sr.uuid == POWERPAL_CHARACTERISTIC_READING_BATCH_SIZE_UUID) {
-        this->reading_batch_size_char_handle_ = sr.handle;
-        ESP_LOGD(TAG, "Found reading batch size characteristic handle: %d", sr.handle);
-      } else if (sr.uuid == POWERPAL_CHARACTERISTIC_MEASUREMENT_UUID) {
-        this->measurement_char_handle_ = sr.handle;
-        ESP_LOGD(TAG, "Found measurement characteristic handle: %d", sr.handle);
-      } else if (sr.uuid == POWERPAL_CHARACTERISTIC_UUID_UUID) {
-        this->uuid_char_handle_ = sr.handle;
-        ESP_LOGD(TAG, "Found UUID characteristic handle: %d", sr.handle);
-      } else if (sr.uuid == POWERPAL_CHARACTERISTIC_SERIAL_UUID) {
-        this->serial_number_char_handle_ = sr.handle;
-        ESP_LOGD(TAG, "Found serial number characteristic handle: %d", sr.handle);
-      } else if (sr.uuid == POWERPAL_CHARACTERISTIC_BATTERY_UUID) {
-        this->battery_char_handle_ = sr.handle;
-        ESP_LOGD(TAG, "Found battery characteristic handle: %d", sr.handle);
-      } else if (sr.uuid == POWERPAL_CHARACTERISTIC_FIRMWARE_UUID) {
-        this->firmware_char_handle_ = sr.handle;
-        ESP_LOGD(TAG, "Found firmware characteristic handle: %d", sr.handle);
-      } else if (sr.uuid == POWERPAL_CHARACTERISTIC_LED_SENSITIVITY_UUID) {
-        this->led_sensitivity_char_handle_ = sr.handle;
-        ESP_LOGD(TAG, "Found LED sensitivity characteristic handle: %d", sr.handle);
-      } else if (sr.uuid == POWERPAL_CHARACTERISTIC_MEASUREMENT_ACCESS_UUID) {
-        this->measurement_access_char_handle_ = sr.handle;
-        ESP_LOGD(TAG, "Found measurement access characteristic handle: %d", sr.handle);
+      // Use ESPHome BLE tracker API to discover and assign characteristic handles
+      auto *pairing_code_char = this->parent_->get_characteristic(POWERPAL_SERVICE_UUID, POWERPAL_CHARACTERISTIC_PAIRING_CODE_UUID);
+      if (pairing_code_char != nullptr) {
+        this->pairing_code_char_handle_ = pairing_code_char->handle;
+        ESP_LOGD(TAG, "Found pairing code characteristic handle: %d", pairing_code_char->handle);
+      }
+      auto *reading_batch_size_char = this->parent_->get_characteristic(POWERPAL_SERVICE_UUID, POWERPAL_CHARACTERISTIC_READING_BATCH_SIZE_UUID);
+      if (reading_batch_size_char != nullptr) {
+        this->reading_batch_size_char_handle_ = reading_batch_size_char->handle;
+        ESP_LOGD(TAG, "Found reading batch size characteristic handle: %d", reading_batch_size_char->handle);
+      }
+      auto *measurement_char = this->parent_->get_characteristic(POWERPAL_SERVICE_UUID, POWERPAL_CHARACTERISTIC_MEASUREMENT_UUID);
+      if (measurement_char != nullptr) {
+        this->measurement_char_handle_ = measurement_char->handle;
+        ESP_LOGD(TAG, "Found measurement characteristic handle: %d", measurement_char->handle);
+      }
+      auto *uuid_char = this->parent_->get_characteristic(POWERPAL_SERVICE_UUID, POWERPAL_CHARACTERISTIC_UUID_UUID);
+      if (uuid_char != nullptr) {
+        this->uuid_char_handle_ = uuid_char->handle;
+        ESP_LOGD(TAG, "Found UUID characteristic handle: %d", uuid_char->handle);
+      }
+      auto *serial_char = this->parent_->get_characteristic(POWERPAL_SERVICE_UUID, POWERPAL_CHARACTERISTIC_SERIAL_UUID);
+      if (serial_char != nullptr) {
+        this->serial_number_char_handle_ = serial_char->handle;
+        ESP_LOGD(TAG, "Found serial number characteristic handle: %d", serial_char->handle);
+      }
+      auto *battery_char = this->parent_->get_characteristic(POWERPAL_SERVICE_UUID, POWERPAL_CHARACTERISTIC_BATTERY_UUID);
+      if (battery_char != nullptr) {
+        this->battery_char_handle_ = battery_char->handle;
+        ESP_LOGD(TAG, "Found battery characteristic handle: %d", battery_char->handle);
+      }
+      auto *firmware_char = this->parent_->get_characteristic(POWERPAL_SERVICE_UUID, POWERPAL_CHARACTERISTIC_FIRMWARE_UUID);
+      if (firmware_char != nullptr) {
+        this->firmware_char_handle_ = firmware_char->handle;
+        ESP_LOGD(TAG, "Found firmware characteristic handle: %d", firmware_char->handle);
+      }
+      auto *led_sensitivity_char = this->parent_->get_characteristic(POWERPAL_SERVICE_UUID, POWERPAL_CHARACTERISTIC_LED_SENSITIVITY_UUID);
+      if (led_sensitivity_char != nullptr) {
+        this->led_sensitivity_char_handle_ = led_sensitivity_char->handle;
+        ESP_LOGD(TAG, "Found LED sensitivity characteristic handle: %d", led_sensitivity_char->handle);
+      }
+      auto *measurement_access_char = this->parent_->get_characteristic(POWERPAL_SERVICE_UUID, POWERPAL_CHARACTERISTIC_MEASUREMENT_ACCESS_UUID);
+      if (measurement_access_char != nullptr) {
+        this->measurement_access_char_handle_ = measurement_access_char->handle;
+        ESP_LOGD(TAG, "Found measurement access characteristic handle: %d", measurement_access_char->handle);
       }
       break;
     }
