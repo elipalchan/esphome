@@ -492,6 +492,11 @@ void Powerpal::gattc_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gat
       }
       break;
     }
+    case ESP_GATTC_CFG_MTU_EVT: {
+      ESP_LOGI(TAG, "MTU configured: %d", param->cfg_mtu.mtu);
+      this->set_mtu(param->cfg_mtu.mtu);
+      break;
+    }
     default:
       ESP_LOGD(TAG, "Unhandled GATTC event: %d (%s)", event, gattc_event_to_str(event));
       break;
