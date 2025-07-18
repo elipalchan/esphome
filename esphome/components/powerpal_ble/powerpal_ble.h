@@ -99,6 +99,7 @@ class Powerpal : public esphome::ble_client::BLEClientNode, public Component {
   uint64_t daily_pulses_{0};
   void register_manual_historical_polling_service();
   void trigger_manual_historical_polling(time_t start = 0, time_t end = 0);
+  void register_service(const std::string &name, const std::vector<std::string> &args, std::function<void(int64_t, int64_t)> callback);
  protected:
   std::string pkt_to_hex_(const uint8_t *data, uint16_t len);
   void decode_(const uint8_t *data, uint16_t length);
